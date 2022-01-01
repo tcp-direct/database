@@ -6,7 +6,7 @@ import (
 )
 
 func TestDB_Init(t *testing.T) {
-	t.Logf("Makin g new testdata db: ./testdata")
+	t.Logf("Making new testdata db: ./testdata")
 	db := NewDB("./testdata")
 
 	type args struct {
@@ -93,8 +93,9 @@ func TestDB_Init(t *testing.T) {
 		t.Cleanup(func() {
 			err := os.RemoveAll("./testdata")
 			if err != nil {
-				t.Errorf("[CLEANUP FAIL] %e", err)
+				t.Fatalf("[CLEANUP FAIL] %e", err)
 			}
+			t.Logf("cleaned up ./testdata")
 		})
 		err := db.CloseAll()
 		if err != nil {
