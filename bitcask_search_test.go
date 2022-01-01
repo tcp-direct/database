@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 
 	c "git.tcp.direct/kayos/common"
@@ -19,13 +20,18 @@ type Foo struct {
 
 func genJunk(t *testing.T, correct bool) []byte {
 	item := c.RandStr(5)
+	bar := c.RandStr(5)
 	if correct {
-		item = needle + c.RandStr(5)
+		if c.RNG(100) > 50 {
+			item = needle + c.RandStr(c.RNG(5))
+		} else {
+			bar = c.RandStr(c.RNG(5)) + needle
+		}
 	}
 
 	f := Foo{
-		Bar:  c.RandStr(5),
-		Yeet: 5,
+		Bar:  bar,
+		Yeet: c.RNG(50),
 		What: map[string]int{c.RandStr(5): 2, item: 7},
 	}
 
@@ -59,10 +65,16 @@ func Test_Search(t *testing.T) {
 		}
 	})
 
+	one := c.RNG(100)
+	two := c.RNG(100)
+	three := c.RNG(100)
+	four := c.RNG(100)
+	five := c.RNG(100)
+
 	for n := 0; n != 100; n++ {
 		var rawjson []byte
 		switch n {
-		case 5, 25, 35, 85:
+		case one, two, three, four, five:
 			rawjson = genJunk(t, true)
 		default:
 			rawjson = genJunk(t, false)
@@ -77,7 +89,22 @@ func Test_Search(t *testing.T) {
 
 	t.Logf("executing search for %s", needle)
 	results := db.With("searchtest").Search(needle)
+	var keys = []int{one, two, three, four, five}
+	var needed = len(keys)
 	for key, value := range results {
+		keyint, err := strconv.Atoi(key)
+		if err != nil {
+			t.Fatalf("failed to convert key to int: %e", err)
+		}
+		for _, k := range keys {
+			if keyint == k {
+				needed--
+			}
+		}
+		keys = append(keys, keyint)
 		t.Logf("Found key: %s, Value: %s", key, string(value.([]byte)))
+	}
+	if needed != 0 {
+		t.Errorf("Needed %d results, got %d", len(keys), len(keys)-needed)
 	}
 }
