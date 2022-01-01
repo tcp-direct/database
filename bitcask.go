@@ -8,16 +8,23 @@ import (
 	"git.tcp.direct/Mirrors/bitcask-mirror"
 )
 
-// DB is an implementation of Filer using bitcask.
+// Casket is an implmentation of a Filer and a Searcher using Bitcask.
+type Casket struct {
+	*bitcask.Bitcask
+	Searcher
+}
+
+// DB is a mapper of a Filer and Searcher implementation using Bitcask.
 type DB struct {
-	store map[string]*bitcask.Bitcask
+	store map[string]Casket
 	path  string
 	mu    *sync.RWMutex
 }
 
-func NewDB(path string) *DB {
+// OpenDB will either open an existing set of bitcask datastores at the given directory, or it will create a new one.
+func OpenDB(path string) *DB {
 	return &DB{
-		store: make(map[string]*bitcask.Bitcask),
+		store: make(map[string]Casket),
 		path:  path,
 		mu:    &sync.RWMutex{},
 	}
@@ -44,18 +51,18 @@ func (db *DB) Init(bucketName string) error {
 		return e
 	}
 
-	db.store[bucketName] = c
+	db.store[bucketName] = Casket{Bitcask: c}
 
 	return nil
 }
 
 // With calls the given underlying bitcask instance.
-func (db *DB) With(bucketName string) Filer {
+func (db *DB) With(bucketName string) Casket {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	d, ok := db.store[bucketName]
 	if !ok {
-		return nil
+		return Casket{Bitcask: nil, Searcher: nil}
 	}
 	return d
 }
@@ -74,10 +81,13 @@ func (db *DB) Sync(bucketName string) error {
 	return db.store[bucketName].Sync()
 }
 
+// withAllAction
 type withAllAction uint8
 
 const (
+	// dclose
 	dclose withAllAction = iota
+	// dsync
 	dsync
 )
 
@@ -90,7 +100,7 @@ func (db *DB) WithAll(action withAllAction) error {
 	var errs []error
 	for name, store := range db.store {
 		var err error
-		if store == nil {
+		if store.Bitcask == nil {
 			errs = append(errs, namedErr(name, errBogusStore))
 			continue
 		}
@@ -110,10 +120,26 @@ func (db *DB) WithAll(action withAllAction) error {
 	return compoundErrors(errs)
 }
 
+// SyncAndCloseAll implements the method from Keeper.
+func (db *DB) SyncAndCloseAll() error {
+	var errs []error
+	errSync := namedErr("sync", db.SyncAll())
+	if errSync != nil {
+		errs = append(errs, errSync)
+	}
+	errClose := namedErr("close", db.CloseAll())
+	if errClose != nil {
+		errs = append(errs, errClose)
+	}
+	return compoundErrors(errs)
+}
+
+// CloseAll closes all bitcask datastores.
 func (db *DB) CloseAll() error {
 	return db.WithAll(dclose)
 }
 
+// SyncAll syncs all bitcask datastores.
 func (db *DB) SyncAll() error {
 	return db.WithAll(dsync)
 }

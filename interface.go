@@ -14,6 +14,7 @@ type Filer interface {
 	Put(key []byte, value []byte) error
 	// Delete should delete the key and the value associated with the given key, and return an error upon failure.
 	Delete(key []byte) error
+
 }
 
 // Keeper will be in charge of the more meta operations involving Filers.

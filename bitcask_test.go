@@ -5,9 +5,14 @@ import (
 	"testing"
 )
 
+var db *DB
+
+func TestDB_NewDB(t *testing.T) {
+
+	db = OpenDB("./testdata")
+}
+
 func TestDB_Init(t *testing.T) {
-	t.Logf("Making new testdata db: ./testdata")
-	db := NewDB("./testdata")
 
 	type args struct {
 		bucketName string
@@ -66,13 +71,13 @@ func TestDB_Init(t *testing.T) {
 		t.Logf("Got value %v at key %v", string(gvalue), key)
 	})
 	t.Run("withBucketDoesntExist", func(t *testing.T) {
-		if nope := db.With("asdfqwerty"); nope != nil {
+		if nope := db.With("asdfqwerty"); nope.Bitcask != nil {
 			t.Errorf("[FAIL] got non nil result for nonexistent bucket: %T, %v", nope, nope)
 		}
 		t.Logf("[SUCCESS] got nil value for bucket that doesn't exist")
 	})
 	t.Run("syncAllShouldFail", func(t *testing.T) {
-		db.store["wtf"] = nil
+		db.store["wtf"] = Casket{}
 		t.Cleanup(func() {
 			t.Logf("deleting bogus store map entry")
 			delete(db.store, "wtf")
