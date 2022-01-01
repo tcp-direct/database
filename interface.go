@@ -23,8 +23,10 @@ type Filer interface {
 // This exists for more potential granular control in the case that they don't.
 // Otherwise you'd have to build a wrapper around an existing key/value store to satisfy an overencompassing interface.
 type Keeper interface {
-	// Initialize should initialize our Filer at the given path, to be referenced and called by bucketName.
-	Initialize(bucketName, path string) error
+	// Path should return the base path where all buckets should be stored under. (likely as subdirectories)
+	Path() string
+	// Init should initialize our Filer at the given path, to be referenced and called by bucketName.
+	Init(bucketName string) error
 	// With provides access to the given bucketName by providing a pointer to the related Filer.
 	With(bucketName string) Filer
 	// Close should safely end any Filer operations of the given bucketName and close any relevant handlers.

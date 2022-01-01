@@ -6,6 +6,8 @@ import (
 )
 
 var errUnknownAction = errors.New("unknown action")
+var errBogusStore = errors.New("bogus store backend")
+
 
 func namedErr(name string, err error) error {
 	if err == nil {

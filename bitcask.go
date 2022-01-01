@@ -11,18 +11,33 @@ import (
 // DB is an implementation of Filer using bitcask.
 type DB struct {
 	store map[string]*bitcask.Bitcask
+	path  string
 	mu    *sync.RWMutex
 }
 
-// Initialize opens a bitcask store at the given path to be referenced by bucketName.
-func (db *DB) Initialize(bucketName, path string) error {
+func NewDB(path string) *DB {
+	return &DB{
+		store: make(map[string]*bitcask.Bitcask),
+		path:  path,
+		mu:    &sync.RWMutex{},
+	}
+}
+
+// Path returns the base path where we store our bitcask "buckets".
+func (db *DB) Path() string {
+	return db.path
+}
+
+// Init opens a bitcask store at the given path to be referenced by bucketName.
+func (db *DB) Init(bucketName string) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if _, ok := db.store["bucketName"]; ok {
 		return errors.New("bucket already exists")
 	}
-	if !strings.HasSuffix("/", path) {
-		path = path + "/"
+	path := db.Path()
+	if !strings.HasSuffix("/", db.Path()) {
+		path = db.Path() + "/"
 	}
 	c, e := bitcask.Open(path + bucketName)
 	if e != nil {
@@ -38,7 +53,11 @@ func (db *DB) Initialize(bucketName, path string) error {
 func (db *DB) With(bucketName string) Filer {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	return db.store[bucketName]
+	d, ok := db.store[bucketName]
+	if !ok {
+		return nil
+	}
+	return d
 }
 
 // Close is a simple shim for bitcask's Close function.
@@ -58,8 +77,8 @@ func (db *DB) Sync(bucketName string) error {
 type withAllAction uint8
 
 const (
-	Close withAllAction = iota
-	Sync
+	dclose withAllAction = iota
+	dsync
 )
 
 // WithAll performs an action on all bitcask stores that we have open.
@@ -71,10 +90,14 @@ func (db *DB) WithAll(action withAllAction) error {
 	var errs []error
 	for name, store := range db.store {
 		var err error
+		if store == nil {
+			errs = append(errs, namedErr(name, errBogusStore))
+			continue
+		}
 		switch action {
-		case Close:
+		case dclose:
 			err = namedErr(name, store.Close())
-		case Sync:
+		case dsync:
 			err = namedErr(name, store.Sync())
 		default:
 			return errUnknownAction
@@ -88,9 +111,9 @@ func (db *DB) WithAll(action withAllAction) error {
 }
 
 func (db *DB) CloseAll() error {
-	return db.WithAll(Close)
+	return db.WithAll(dclose)
 }
 
 func (db *DB) SyncAll() error {
-	return db.WithAll(Sync)
+	return db.WithAll(dsync)
 }
