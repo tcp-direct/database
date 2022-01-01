@@ -23,10 +23,10 @@ type Filer interface {
 // This exists for more potential granular control in the case that they don't.
 // Otherwise you'd have to build a wrapper around an existing key/value store to satisfy an overencompassing interface.
 type Keeper interface {
-	// Open should initialize our Filer at the given path, to be referenced and called by bucketName.
+	// Initialize should initialize our Filer at the given path, to be referenced and called by bucketName.
 	Initialize(bucketName, path string) error
 	// With provides access to the given bucketName by providing a pointer to the related Filer.
-	With(bucketName string) *Filer
+	With(bucketName string) Filer
 	// Close should safely end any Filer operations of the given bucketName and close any relevant handlers.
 	Close(bucketName string) error
 	// Sync should take any volatile data and solidify it somehow if relevant. (ram to disk in most cases)
