@@ -11,7 +11,7 @@ import (
 // DB is an implementation of Filer using bitcask.
 type DB struct {
 	store map[string]*bitcask.Bitcask
-	mu *sync.RWMutex
+	mu    *sync.RWMutex
 }
 
 // Initialize opens a bitcask store at the given path to be referenced by bucketName.
@@ -24,7 +24,7 @@ func (db *DB) Initialize(bucketName, path string) error {
 	if !strings.HasSuffix("/", path) {
 		path = path + "/"
 	}
-	c, e := bitcask.Open(path+bucketName)
+	c, e := bitcask.Open(path + bucketName)
 	if e != nil {
 		return e
 	}
@@ -77,7 +77,7 @@ func (db *DB) WithAll(action withAllAction) error {
 		case Sync:
 			err = namedErr(name, store.Sync())
 		default:
-			return unknownAction
+			return errUnknownAction
 		}
 		if err == nil {
 			continue

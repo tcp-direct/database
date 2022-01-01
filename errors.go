@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-var unknownAction = errors.New("unknown action")
+var errUnknownAction = errors.New("unknown action")
 
 func namedErr(name string, err error) error {
 	if err == nil {
 		return nil
 	}
-	errors.New(name+": "+err.Error())
+	return errors.New(name+": "+err.Error())
 }
 
 func compoundErrors(errs []error) error {
