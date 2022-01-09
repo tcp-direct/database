@@ -18,6 +18,27 @@ type Foo struct {
 	What map[string]int
 }
 
+func setupTest(storename string, t *testing.T) *DB {
+	var db *DB
+	testpath := t.TempDir()
+
+	t.Logf("opening database at %s", testpath)
+	db = OpenDB(testpath)
+
+	err := db.Init(storename)
+	if err != nil {
+		t.Fatalf("[FAIL] couuldn't initialize bucket: %e", err)
+	}
+
+	t.Cleanup(func() {
+		t.Logf("cleaning up file at; %s", testpath)
+		if err := os.RemoveAll(testpath); err != nil {
+			t.Error(err)
+		}
+	})
+	return db
+}
+
 func genJunk(t *testing.T, correct bool) []byte {
 	item := c.RandStr(5)
 	bar := c.RandStr(5)
@@ -42,7 +63,7 @@ func genJunk(t *testing.T, correct bool) []byte {
 	return raw
 }
 
-func addJunk(db *DB, storename string, one, two, three, four, five int, t *testing.T) [][]byte {
+func addJunk(db *DB, storename string, one, two, three, four, five int, t *testing.T, echo bool) [][]byte {
 	var needles [][]byte
 	for n := 0; n != 100; n++ {
 		var rawjson []byte
@@ -59,34 +80,21 @@ func addJunk(db *DB, storename string, one, two, three, four, five int, t *testi
 			t.Logf("%e", err)
 		}
 	}
-	t.Logf(
-		"created 100 entries of random data with needles located at %d, %d, %d, %d, %d",
-		one, two, three, four, five,
-	)
+	if echo {
+		t.Logf(
+			"created 100 entries of random data with needles located at %d, %d, %d, %d, %d",
+			one, two, three, four, five,
+		)
+	} else {
+		t.Log("created 100 entries of junk")
+	}
 
 	return needles
 }
 
 func Test_Search(t *testing.T) {
-	var db *DB
-
-	testpath := t.TempDir()
-	storename := "searchtest"
-
-	t.Logf("opening database at %s", testpath)
-	db = OpenDB(testpath)
-
-	err := db.Init(storename)
-	if err != nil {
-		t.Fatalf("[FAIL] couuldn't initialize bucket: %e", err)
-	}
-
-	t.Cleanup(func() {
-		t.Logf("cleaning up file at; %s", testpath)
-		if err := os.RemoveAll(testpath); err != nil {
-			t.Error(err)
-		}
-	})
+	var storename = "test_search"
+	var db = setupTest(storename, t)
 
 	one := c.RNG(100)
 	two := c.RNG(100)
@@ -94,7 +102,7 @@ func Test_Search(t *testing.T) {
 	four := c.RNG(100)
 	five := c.RNG(100)
 
-	addJunk(db, storename, one, two, three, four, five, t)
+	addJunk(db, storename, one, two, three, four, five, t, true)
 
 	t.Logf("executing search for %s", needle)
 	results, err := db.With(storename).Search(needle)
@@ -122,27 +130,10 @@ func Test_Search(t *testing.T) {
 }
 
 func Test_ValueExists(t *testing.T) {
-	var db *DB
+	var storename = "test_value_exists"
+	var db = setupTest(storename, t)
 
-	testpath := t.TempDir()
-	var storename = "valueexists"
-
-	t.Logf("opening database at %s", testpath)
-	db = OpenDB(testpath)
-
-	err := db.Init(storename)
-	if err != nil {
-		t.Fatalf("[FAIL] couuldn't initialize bucket: %e", err)
-	}
-
-	t.Cleanup(func() {
-		t.Logf("cleaning up file at; %s", testpath)
-		if err := os.RemoveAll(testpath); err != nil {
-			t.Error(err)
-		}
-	})
-
-	needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t)
+	needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t, true)
 
 	for _, needle := range needles {
 		if k, ok := db.With(storename).ValueExists(needle); !ok {
@@ -159,5 +150,85 @@ func Test_ValueExists(t *testing.T) {
 		} else {
 			t.Logf("[SUCCESS] store succeeded in not having random value %s", garbage)
 		}
+	}
+}
+
+func Test_PrefixScan(t *testing.T) {
+	var storename = "test_prefix_scan"
+	var db = setupTest(storename, t)
+
+	addJunk(db, storename, c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), t, false)
+
+	var needles = []KeyValue{
+		KeyValue{
+			Key:   Key{b: []byte("user:Fuckhole")},
+			Value: Value{b: []byte(c.RandStr(55))},
+		},
+		KeyValue{
+			Key:   Key{b: []byte("user:Johnson")},
+			Value: Value{b: []byte(c.RandStr(55))},
+		},
+		KeyValue{
+			Key:   Key{b: []byte("user:Jackson")},
+			Value: Value{b: []byte(c.RandStr(55))},
+		},
+		KeyValue{
+			Key:   Key{b: []byte("user:Frackhole")},
+			Value: Value{b: []byte(c.RandStr(55))},
+		},
+		KeyValue{
+			Key:   Key{b: []byte("user:Baboshka")},
+			Value: Value{b: []byte(c.RandStr(55))},
+		},
+	}
+
+	for _, kv := range needles {
+		err := db.With(storename).Put(kv.Key.Bytes(), kv.Value.Bytes())
+		if err != nil {
+			t.Errorf("failed to add data to %s: %e", storename, err)
+		} else {
+			t.Logf("added needle with key(value): %s(%s)", kv.Key.String(), kv.Value.String())
+		}
+
+	}
+
+	res, err := db.With(storename).PrefixScan("user:")
+	if err != nil {
+		t.Errorf("failed to PrefixScan: %e", err)
+	}
+
+	if len(res) != len(needles) {
+		t.Errorf(
+			"[FAIL] Length of results (%d) is not the amount of needles we generated (%d)",
+			len(res), len(needles),
+		)
+	}
+
+	var keysmatched = 0
+
+	for _, kv := range res {
+		for _, ogkv := range needles {
+			if kv.Key.String() != ogkv.Key.String() {
+				continue
+			}
+			t.Logf("[%s] Found needle key", ogkv.Key.String())
+			keysmatched++
+
+			if kv.Value.String() != ogkv.Value.String() {
+				t.Errorf(
+					"[FAIL] values of key %s should have matched. wanted: %s, got: %s",
+					kv.Key.String(), ogkv.Value.String(), kv.Value.String(),
+				)
+			}
+
+			t.Logf(
+				"[%s] Found needle value: %s",
+				ogkv.Key.String(), ogkv.Value.String(),
+			)
+		}
+	}
+
+	if keysmatched != len(needles) {
+		t.Errorf("Needed to match %d keys, only matched %d", len(needles), len(needles))
 	}
 }

@@ -46,16 +46,17 @@ func (c Store) ValueExists(value []byte) (key []byte, ok bool) {
 
 // PrefixScan will scan a Store for all keys that have a matching prefix of the given string
 // and return a map of keys and values. (map[Key]Value)
-func (c Store) PrefixScan(prefix string) (map[interface{}]Value, error) {
-	res := make(map[interface{}]Value)
+func (c Store) PrefixScan(prefix string) ([]KeyValue, error) {
+	var res []KeyValue
 	err := c.Scan([]byte(prefix), func(key []byte) error {
 		raw, err := c.Get(key)
 		if err != nil {
 			return err
 		}
 		k := Key{b: key}
+		kv := KeyValue{Key: k, Value: Value{b: raw}}
+		res = append(res, kv)
 
-		res[k] = Value{b: raw}
 		return nil
 	})
 	return res, err
