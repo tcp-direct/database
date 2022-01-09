@@ -10,13 +10,7 @@ func (c Store) Search(query string) ([]KeyValue, error) {
 	var errs []error
 	var res []KeyValue
 	for _, key := range c.AllKeys() {
-		raw, err := c.Get(key)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if raw == nil {
-			continue
-		}
+		raw, _ := c.Get(key)
 		k := Key{b: key}
 		v := Value{b: raw}
 		if strings.Contains(string(raw), query) {
@@ -29,13 +23,10 @@ func (c Store) Search(query string) ([]KeyValue, error) {
 // ValueExists will check for the existence of a Value anywhere within the keyspace, returning the Key and true if found, or nil and false if not found.
 func (c Store) ValueExists(value []byte) (key []byte, ok bool) {
 	var raw []byte
-	var needle = Value{b:value}
+	var needle = Value{b: value}
 	for _, k := range c.AllKeys() {
 		raw, _ = c.Get(k)
-		if raw == nil {
-			continue
-		}
-		v := Value{b:raw}
+		v := Value{b: raw}
 		if v.Equal(needle) {
 			ok = true
 			return
@@ -49,10 +40,7 @@ func (c Store) ValueExists(value []byte) (key []byte, ok bool) {
 func (c Store) PrefixScan(prefix string) ([]KeyValue, error) {
 	var res []KeyValue
 	err := c.Scan([]byte(prefix), func(key []byte) error {
-		raw, err := c.Get(key)
-		if err != nil {
-			return err
-		}
+		raw, _ := c.Get(key)
 		k := Key{b: key}
 		kv := KeyValue{Key: k, Value: Value{b: raw}}
 		res = append(res, kv)

@@ -8,7 +8,7 @@ import (
 
 // KeyValue represents a key and a value from a key/balue store.
 type KeyValue struct {
-	Key Key
+	Key   Key
 	Value Value
 }
 
