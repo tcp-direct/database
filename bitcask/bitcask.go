@@ -71,9 +71,14 @@ func (db *DB) With(bucketName string) Store {
 
 // Close is a simple shim for bitcask's Close function.
 func (db *DB) Close(bucketName string) error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	return db.store[bucketName].Close()
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	err := db.store[bucketName].Close()
+	if err != nil {
+		return err
+	}
+	delete(db.store, bucketName)
+	return nil
 }
 
 // Sync is a simple shim for bitcask's Sync function.

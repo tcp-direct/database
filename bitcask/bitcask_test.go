@@ -16,6 +16,25 @@ func newTestDB(t *testing.T) *DB {
 	return tdb
 }
 
+func seedRandKV(db *DB, store string) error {
+	return db.With(store).Put([]byte(c.RandStr(55)), []byte(c.RandStr(55)))
+}
+
+func seedRandStores(db *DB, t *testing.T) {
+	for n := 0; n != 5; n++ {
+		randstore := c.RandStr(5)
+		err := db.Init(randstore)
+		if err != nil {
+			t.Errorf("failed to initialize store for test SyncAndCloseAll: %e", err)
+		}
+		err = seedRandKV(db, randstore)
+		if err != nil {
+			t.Errorf("failed to initialize random values in store %s for test SyncAndCloseAll: %e", randstore, err)
+		}
+	}
+	t.Logf("seeded random stores with random values for test %s", t.Name())
+}
+
 func TestDB_Init(t *testing.T) {
 	var db = newTestDB(t)
 
@@ -96,15 +115,6 @@ func TestDB_Init(t *testing.T) {
 
 	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err... ( ._. )
 
-	t.Run("sync", func(t *testing.T) {
-		for d := range db.store {
-			err := db.With(d).Sync()
-			if err != nil {
-				t.Errorf("failed to sync %s: %e", d, err)
-			}
-		}
-	})
-
 	t.Run("syncAll", func(t *testing.T) {
 		err := db.SyncAll()
 		if err != nil {
@@ -118,7 +128,7 @@ func TestDB_Init(t *testing.T) {
 			if err != nil {
 				t.Fatalf("[CLEANUP FAIL] %e", err)
 			}
-			t.Logf("cleaned up ./testdata")
+			t.Logf("[CLEANUP] cleaned up ./testdata")
 		})
 		err := db.CloseAll()
 		if err != nil {
@@ -129,15 +139,42 @@ func TestDB_Init(t *testing.T) {
 
 	t.Run("SyncAndCloseAll", func(t *testing.T) {
 		db = newTestDB(t)
-		for n := 0; n != 5; n++ {
-			err := db.Init(c.RandStr(5))
-			if err != nil {
-				t.Errorf("failed to initialize store for test SyncAndCloseAll: %e", err)
-			}
-		}
+		seedRandStores(db, t)
 		err := db.SyncAndCloseAll()
 		if err != nil {
-			t.Errorf("failed to SyncAndCloseAll: %e", err)
+			t.Errorf("[FAIL] failed to SyncAndCloseAll: %e", err)
+		}
+	})
+}
+
+func Test_Sync(t *testing.T) {
+	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err... ( ._. )
+
+	var db = newTestDB(t)
+	seedRandStores(db, t)
+	t.Run("Sync()", func(t *testing.T) {
+		for d := range db.store {
+			err := db.With(d).Sync()
+			if err != nil {
+				t.Errorf("[FAIL] failed to sync %s: %e", d, err)
+			} else {
+				t.Logf("[+] Sync() successful for %s", d)
+			}
+		}
+	})
+}
+
+func Test_Close(t *testing.T) {
+	var db = newTestDB(t)
+	seedRandStores(db, t)
+	t.Run("Close()", func(t *testing.T) {
+		for d := range db.store {
+			err := db.With(d).Close()
+			if err != nil {
+				t.Errorf("[FAIL] failed to close %s: %e", d, err)
+			} else {
+				t.Logf("[+] Close() successful for %s", d)
+			}
 		}
 	})
 }
