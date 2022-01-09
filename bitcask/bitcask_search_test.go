@@ -104,53 +104,88 @@ func Test_Search(t *testing.T) {
 
 	addJunk(db, storename, one, two, three, four, five, t, true)
 
-	t.Logf("executing search for %s", needle)
-	results, err := db.With(storename).Search(needle)
-	if err != nil {
-		t.Errorf("failed to search: %e", err)
-	}
-	var keys = []int{one, two, three, four, five}
-	var needed = len(keys)
-	for _, kv := range results {
-		keyint, err := strconv.Atoi(kv.Key.String())
+	// For coverage
+	db.store["yeet"] = Store{Bitcask: nil}
+
+	t.Run("BasicSearch", func(t *testing.T) {
+
+		t.Logf("executing search for %s", needle)
+
+		results, err := db.With(storename).Search(needle)
 		if err != nil {
-			t.Fatalf("failed to convert Key to int: %e", err)
+			t.Errorf("failed to search: %e", err)
 		}
-		for _, k := range keys {
-			if keyint == k {
-				needed--
+		var keys = []int{one, two, three, four, five}
+		var needed = len(keys)
+		for _, kv := range results {
+			keyint, err := strconv.Atoi(kv.Key.String())
+			if err != nil {
+				t.Fatalf("failed to convert Key to int: %e", err)
 			}
+			for _, k := range keys {
+				if keyint == k {
+					needed--
+				}
+			}
+			keys = append(keys, keyint)
+			t.Logf("Found Key: %s, Value: %s", kv.Key.String(), kv.Value.String())
 		}
-		keys = append(keys, keyint)
-		t.Logf("Found Key: %s, Value: %s", kv.Key.String(), kv.Value.String())
-	}
-	if needed != 0 {
-		t.Errorf("Needed %d results, got %d", len(keys), len(keys)-needed)
-	}
+		if needed != 0 {
+			t.Errorf("Needed %d results, got %d", len(keys), len(keys)-needed)
+		}
+	})
+
+	t.Run("NoResultsSearch", func(t *testing.T) {
+		bogus := c.RandStr(55)
+		t.Logf("executing search for %s", bogus)
+
+		results, err := db.With(storename).Search(bogus)
+		if err != nil {
+			t.Errorf("failed to search: %e", err)
+		}
+		if len(results) > 0 {
+			t.Errorf("[FAIL] got %d results, wanted 0", len(results))
+		}
+	})
 }
 
 func Test_ValueExists(t *testing.T) {
 	var storename = "test_value_exists"
 	var db = setupTest(storename, t)
 
-	needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t, true)
+	t.Run("ValueExists", func(t *testing.T) {
+		needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t, true)
 
-	for _, needle := range needles {
-		if k, ok := db.With(storename).ValueExists(needle); !ok {
-			t.Errorf("[FAIL] store should have contained a value %s somewhere, it did not.", string(needle))
-		} else {
-			t.Logf("[SUCCESS] successfully located value: %s, at key: %s", string(k), string(needle))
+		for _, needle := range needles {
+			if k, exists := db.With(storename).ValueExists(needle); !exists {
+				t.Errorf("[FAIL] store should have contained a value %s somewhere, it did not.", string(needle))
+			} else {
+				t.Logf("[SUCCESS] successfully located value: %s, at key: %s", string(k), string(needle))
+			}
 		}
-	}
+	})
 
-	for n := 0; n != 5; n++ {
-		garbage := c.RandStr(55)
+	t.Run("ValueShouldNotExist", func(t *testing.T) {
+		for n := 0; n != 5; n++ {
+			garbage := c.RandStr(55)
+			if _, exists := db.With(storename).ValueExists([]byte(garbage)); exists {
+				t.Errorf("[FAIL] store should have not contained value %v, but it did", []byte(garbage))
+			} else {
+				t.Logf("[SUCCESS] store succeeded in not having random value %s", garbage)
+			}
+		}
+	})
+
+	t.Run("ValueExistNilBitcask", func(t *testing.T) {
+		db.store["asdb"] = Store{Bitcask: nil}
+		garbage := "yeet"
 		if _, exists := db.With(storename).ValueExists([]byte(garbage)); exists {
-			t.Errorf("[FAIL] store should have not contained value %v, but it did", []byte(garbage))
+			t.Errorf("[FAIL] store should have not contained value %v, should have been nil", []byte(garbage))
 		} else {
-			t.Logf("[SUCCESS] store succeeded in not having random value %s", garbage)
+			t.Log("[SUCCESS] store succeeded in being nil")
 		}
-	}
+
+	})
 }
 
 func Test_PrefixScan(t *testing.T) {
@@ -160,23 +195,23 @@ func Test_PrefixScan(t *testing.T) {
 	addJunk(db, storename, c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), t, false)
 
 	var needles = []KeyValue{
-		KeyValue{
+		{
 			Key:   Key{b: []byte("user:Fuckhole")},
 			Value: Value{b: []byte(c.RandStr(55))},
 		},
-		KeyValue{
+		{
 			Key:   Key{b: []byte("user:Johnson")},
 			Value: Value{b: []byte(c.RandStr(55))},
 		},
-		KeyValue{
+		{
 			Key:   Key{b: []byte("user:Jackson")},
 			Value: Value{b: []byte(c.RandStr(55))},
 		},
-		KeyValue{
+		{
 			Key:   Key{b: []byte("user:Frackhole")},
 			Value: Value{b: []byte(c.RandStr(55))},
 		},
-		KeyValue{
+		{
 			Key:   Key{b: []byte("user:Baboshka")},
 			Value: Value{b: []byte(c.RandStr(55))},
 		},

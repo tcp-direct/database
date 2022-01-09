@@ -39,13 +39,14 @@ func TestDB_Init(t *testing.T) {
 	var db = newTestDB(t)
 
 	type args struct {
-		bucketName string
+		storeName string
 	}
 	type test struct {
 		name    string
 		fields  *DB
 		args    args
 		wantErr bool
+		specErr error
 	}
 
 	tests := []test{
@@ -56,10 +57,11 @@ func TestDB_Init(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "bucketExists",
+			name:    "storeExists",
 			fields:  db,
 			args:    args{"simple"},
 			wantErr: true,
+			specErr: errStoreExists,
 		},
 		{
 			name:    "newBucket",
@@ -71,8 +73,12 @@ func TestDB_Init(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := db.Init(tt.args.bucketName); (err != nil) != tt.wantErr {
+			err := db.Init(tt.args.storeName)
+			if (err != nil) != tt.wantErr {
 				t.Errorf("[FAIL] Init() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if (err != nil) != tt.wantErr && tt.specErr != nil && err != tt.specErr {
+				t.Errorf("[FAIL] wanted error %e, got error %e", tt.specErr, err)
 			}
 		})
 	}
@@ -96,9 +102,9 @@ func TestDB_Init(t *testing.T) {
 	})
 	t.Run("withBucketDoesntExist", func(t *testing.T) {
 		if nope := db.With("asdfqwerty"); nope.Bitcask != nil {
-			t.Errorf("[FAIL] got non nil result for nonexistent bucket: %T, %v", nope, nope)
+			t.Errorf("[FAIL] got non nil result for nonexistent store: %T, %v", nope, nope)
 		}
-		t.Logf("[SUCCESS] got nil Value for bucket that doesn't exist")
+		t.Logf("[SUCCESS] got nil Value for store that doesn't exist")
 	})
 	t.Run("syncAllShouldFail", func(t *testing.T) {
 		db.store["wtf"] = Store{}
@@ -186,5 +192,32 @@ func Test_Close(t *testing.T) {
 			}
 		}
 		t.Logf("[SUCCESS] Confirmed that all stores have been closed")
+	})
+
+	t.Run("CantCloseBogusStore", func(t *testing.T) {
+		err := db.Close(c.RandStr(55))
+		if err != errBogusStore {
+			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
+		}
+	})
+}
+
+func Test_withAll(t *testing.T) {
+	var db = newTestDB(t)
+	t.Run("withAllNoStores", func(t *testing.T) {
+		err := db.withAll(121)
+		if err != errNoStores {
+			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
+		}
+	})
+	t.Run("withAllBogusAction", func(t *testing.T) {
+		err := db.Init("asdf")
+		if err != nil {
+			t.Errorf("[FAIL] unexpected error: %e", err)
+		}
+		wAllErr := db.withAll(121)
+		if wAllErr != errUnknownAction {
+			t.Errorf("[FAIL] wanted error %e, got error %e", errUnknownAction, err)
+		}
 	})
 }
