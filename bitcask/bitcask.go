@@ -1,4 +1,4 @@
-package database
+package bitcask
 
 import (
 	"errors"
@@ -11,7 +11,6 @@ import (
 // Casket is an implmentation of a Filer and a Searcher using Bitcask.
 type Casket struct {
 	*bitcask.Bitcask
-	Searcher
 }
 
 // DB is a mapper of a Filer and Searcher implementation using Bitcask.
@@ -62,7 +61,7 @@ func (db *DB) With(bucketName string) Casket {
 	defer db.mu.RUnlock()
 	d, ok := db.store[bucketName]
 	if !ok {
-		return Casket{Bitcask: nil, Searcher: nil}
+		return Casket{Bitcask: nil}
 	}
 	return d
 }
