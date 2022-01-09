@@ -2,10 +2,6 @@ package database
 
 // Keeper will be in charge of the more meta operations involving Filers.
 // This includes operations like initialization, syncing to disk if applicable, and backing up.
-//
-// NOTE: Many key/value golang libraries will already implement this interface already.
-// This exists for more potential granular control in the case that they don't.
-// Otherwise you'd have to build a wrapper around an existing key/value store to satisfy an overencompassing interface.
 type Keeper interface {
 	// Path should return the base path where all buckets should be stored under. (likely as subdirectories)
 	Path() string
