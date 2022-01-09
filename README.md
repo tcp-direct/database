@@ -1,7 +1,5 @@
 # database
 --
-    import "git.tcp.direct/kayos/database"
-
 
 #### type Casket
 
