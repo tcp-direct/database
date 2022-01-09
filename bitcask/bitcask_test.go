@@ -152,7 +152,7 @@ func Test_Sync(t *testing.T) {
 
 	var db = newTestDB(t)
 	seedRandStores(db, t)
-	t.Run("Sync()", func(t *testing.T) {
+	t.Run("Sync", func(t *testing.T) {
 		for d := range db.store {
 			err := db.With(d).Sync()
 			if err != nil {
@@ -167,8 +167,10 @@ func Test_Sync(t *testing.T) {
 func Test_Close(t *testing.T) {
 	var db = newTestDB(t)
 	seedRandStores(db, t)
-	t.Run("Close()", func(t *testing.T) {
+	var oldstores []string
+	t.Run("Close", func(t *testing.T) {
 		for d := range db.store {
+			oldstores = append(oldstores, d)
 			err := db.With(d).Close()
 			if err != nil {
 				t.Errorf("[FAIL] failed to close %s: %e", d, err)
@@ -176,5 +178,13 @@ func Test_Close(t *testing.T) {
 				t.Logf("[+] Close() successful for %s", d)
 			}
 		}
+	})
+	t.Run("AssureClosed", func(t *testing.T) {
+		for _, d := range oldstores {
+			if err := db.With(d).Sync(); err != nil {
+				t.Errorf("[FAIL] store %s should have been deleted", d)
+			}
+		}
+		t.Logf("[SUCCESS] Confirmed that all stores have been closed")
 	})
 }
