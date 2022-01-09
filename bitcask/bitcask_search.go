@@ -2,8 +2,6 @@ package bitcask
 
 import (
 	"strings"
-
-	"git.tcp.direct/kayos/common"
 )
 
 // Search will search for a given string within all values inside of a Store.
@@ -31,12 +29,14 @@ func (c Store) Search(query string) ([]KeyValue, error) {
 // ValueExists will check for the existence of a Value anywhere within the keyspace, returning the Key and true if found, or nil and false if not found.
 func (c Store) ValueExists(value []byte) (key []byte, ok bool) {
 	var raw []byte
+	var needle = Value{b:value}
 	for _, k := range c.AllKeys() {
 		raw, _ = c.Get(k)
 		if raw == nil {
 			continue
 		}
-		if common.CompareChecksums(value, raw) {
+		v := Value{b:raw}
+		if v.Equal(needle) {
 			ok = true
 			return
 		}

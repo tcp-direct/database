@@ -42,18 +42,41 @@ func genJunk(t *testing.T, correct bool) []byte {
 	return raw
 }
 
-func Test_Search(t *testing.T) {
-	var (
-		testpath = "./testsearch"
+func addJunk(db *DB, storename string, one, two, three, four, five int, t *testing.T) [][]byte {
+	var needles [][]byte
+	for n := 0; n != 100; n++ {
+		var rawjson []byte
+		switch n {
+		case one, two, three, four, five:
+			rawjson = genJunk(t, true)
+			needles = append(needles, rawjson)
+		default:
+			rawjson = genJunk(t, false)
+		}
+		err := db.With(storename).Put([]byte(fmt.Sprintf("%d", n)), rawjson)
+		if err != nil {
+			t.Fail()
+			t.Logf("%e", err)
+		}
+	}
+	t.Logf(
+		"created 100 entries of random data with needles located at %d, %d, %d, %d, %d",
+		one, two, three, four, five,
 	)
 
+	return needles
+}
+
+func Test_Search(t *testing.T) {
 	var db *DB
 
-	t.Logf("opening database at %s", testpath)
+	testpath := t.TempDir()
+	storename := "searchtest"
 
+	t.Logf("opening database at %s", testpath)
 	db = OpenDB(testpath)
 
-	err := db.Init("searchtest")
+	err := db.Init(storename)
 	if err != nil {
 		t.Fatalf("[FAIL] couuldn't initialize bucket: %e", err)
 	}
@@ -71,24 +94,10 @@ func Test_Search(t *testing.T) {
 	four := c.RNG(100)
 	five := c.RNG(100)
 
-	for n := 0; n != 100; n++ {
-		var rawjson []byte
-		switch n {
-		case one, two, three, four, five:
-			rawjson = genJunk(t, true)
-		default:
-			rawjson = genJunk(t, false)
-		}
-		t.Logf("created random data: %s", rawjson)
-		err := db.With("searchtest").Put([]byte(fmt.Sprintf("%d", n)), rawjson)
-		if err != nil {
-			t.Fail()
-			t.Logf("%e", err)
-		}
-	}
+	addJunk(db, storename, one, two, three, four, five, t)
 
 	t.Logf("executing search for %s", needle)
-	results, err := db.With("searchtest").Search(needle)
+	results, err := db.With(storename).Search(needle)
 	if err != nil {
 		t.Errorf("failed to search: %e", err)
 	}
@@ -109,5 +118,46 @@ func Test_Search(t *testing.T) {
 	}
 	if needed != 0 {
 		t.Errorf("Needed %d results, got %d", len(keys), len(keys)-needed)
+	}
+}
+
+func Test_ValueExists(t *testing.T) {
+	var db *DB
+
+	testpath := t.TempDir()
+	var storename = "valueexists"
+
+	t.Logf("opening database at %s", testpath)
+	db = OpenDB(testpath)
+
+	err := db.Init(storename)
+	if err != nil {
+		t.Fatalf("[FAIL] couuldn't initialize bucket: %e", err)
+	}
+
+	t.Cleanup(func() {
+		t.Logf("cleaning up file at; %s", testpath)
+		if err := os.RemoveAll(testpath); err != nil {
+			t.Error(err)
+		}
+	})
+
+	needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t)
+
+	for _, needle := range needles {
+		if k, ok := db.With(storename).ValueExists(needle); !ok {
+			t.Errorf("[FAIL] store should have contained a value %s somewhere, it did not.", string(needle))
+		} else {
+			t.Logf("[SUCCESS] successfully located value: %s, at key: %s", string(k), string(needle))
+		}
+	}
+
+	for n := 0; n != 5; n++ {
+		garbage := c.RandStr(55)
+		if _, exists := db.With(storename).ValueExists([]byte(garbage)); exists {
+			t.Errorf("[FAIL] store should have not contained value %v, but it did", []byte(garbage))
+		} else {
+			t.Logf("[SUCCESS] store succeeded in not having random value %s", garbage)
+		}
 	}
 }
