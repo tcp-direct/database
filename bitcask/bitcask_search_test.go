@@ -88,13 +88,16 @@ func Test_Search(t *testing.T) {
 	}
 
 	t.Logf("executing search for %s", needle)
-	results := db.With("searchtest").Search(needle)
+	results, err := db.With("searchtest").Search(needle)
+	if err != nil {
+		t.Errorf("failed to search: %e", err)
+	}
 	var keys = []int{one, two, three, four, five}
 	var needed = len(keys)
-	for key, value := range results {
-		keyint, err := strconv.Atoi(key)
+	for _, kv := range results {
+		keyint, err := strconv.Atoi(kv.Key.String())
 		if err != nil {
-			t.Fatalf("failed to convert key to int: %e", err)
+			t.Fatalf("failed to convert Key to int: %e", err)
 		}
 		for _, k := range keys {
 			if keyint == k {
@@ -102,7 +105,7 @@ func Test_Search(t *testing.T) {
 			}
 		}
 		keys = append(keys, keyint)
-		t.Logf("Found key: %s, Value: %s", key, string(value.([]byte)))
+		t.Logf("Found Key: %s, Value: %s", kv.Key.String(), kv.Value.String())
 	}
 	if needed != 0 {
 		t.Errorf("Needed %d results, got %d", len(keys), len(keys)-needed)

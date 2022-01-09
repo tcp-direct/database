@@ -57,7 +57,7 @@ func TestDB_Init(t *testing.T) {
 		key := []byte{51, 50}
 		value := []byte("string")
 		err := db.With("simple").Put(key, value)
-		t.Logf("Put value %v at key %v", string(value), key)
+		t.Logf("Put Value %v at Key %v", string(value), key)
 		if err != nil {
 			t.Fatalf("[FAIL] %e", err)
 		}
@@ -68,16 +68,16 @@ func TestDB_Init(t *testing.T) {
 		if string(gvalue) != string(value) {
 			t.Errorf("[FAIL] wanted %v, got %v", string(value), string(gvalue))
 		}
-		t.Logf("Got value %v at key %v", string(gvalue), key)
+		t.Logf("Got Value %v at Key %v", string(gvalue), key)
 	})
 	t.Run("withBucketDoesntExist", func(t *testing.T) {
 		if nope := db.With("asdfqwerty"); nope.Bitcask != nil {
 			t.Errorf("[FAIL] got non nil result for nonexistent bucket: %T, %v", nope, nope)
 		}
-		t.Logf("[SUCCESS] got nil value for bucket that doesn't exist")
+		t.Logf("[SUCCESS] got nil Value for bucket that doesn't exist")
 	})
 	t.Run("syncAllShouldFail", func(t *testing.T) {
-		db.store["wtf"] = Casket{}
+		db.store["wtf"] = Store{}
 		t.Cleanup(func() {
 			t.Logf("deleting bogus store map entry")
 			delete(db.store, "wtf")

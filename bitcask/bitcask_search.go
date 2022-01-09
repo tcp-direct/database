@@ -6,24 +6,33 @@ import (
 	"git.tcp.direct/kayos/common"
 )
 
-func (c Casket) Search(query string) map[string]interface{} {
-	res := make(map[string]interface{})
+// Search will search for a given string within all values inside of a Store.
+// Note, type casting will be necessary. (e.g: []byte or string)
+func (c Store) Search(query string) ([]KeyValue, error) {
+	var errs []error
+	var res []KeyValue
 	for _, key := range c.AllKeys() {
-		raw, _ := c.Get([]byte(key))
+		raw, err := c.Get(key)
+		if err != nil {
+			errs = append(errs, err)
+		}
 		if raw == nil {
 			continue
 		}
+		k := Key{b: key}
+		v := Value{b: raw}
 		if strings.Contains(string(raw), query) {
-			res[key] = raw
+			res = append(res, KeyValue{Key: k, Value: v})
 		}
 	}
-	return res
+	return res, compoundErrors(errs)
 }
 
-func (c Casket) ValueExists(value []byte) (key []byte, ok bool) {
+// ValueExists will check for the existence of a Value anywhere within the keyspace, returning the Key and true if found, or nil and false if not found.
+func (c Store) ValueExists(value []byte) (key []byte, ok bool) {
 	var raw []byte
 	for _, k := range c.AllKeys() {
-		raw, _ = c.Get([]byte(k))
+		raw, _ = c.Get(k)
 		if raw == nil {
 			continue
 		}
@@ -35,23 +44,28 @@ func (c Casket) ValueExists(value []byte) (key []byte, ok bool) {
 	return
 }
 
-func (c Casket) PrefixScan(prefix string) map[string]interface{} {
-	res := make(map[string]interface{})
-	c.Scan([]byte(prefix), func(key []byte) error {
+// PrefixScan will scan a Store for all keys that have a matching prefix of the given string
+// and return a map of keys and values. (map[Key]Value)
+func (c Store) PrefixScan(prefix string) (map[interface{}]Value, error) {
+	res := make(map[interface{}]Value)
+	err := c.Scan([]byte(prefix), func(key []byte) error {
 		raw, err := c.Get(key)
-		if  err != nil {
+		if err != nil {
 			return err
 		}
-		res[string(key)] = raw
+		k := Key{b: key}
+
+		res[k] = Value{b: raw}
 		return nil
 	})
-	return res
+	return res, err
 }
 
-func (c Casket) AllKeys() (keys []string) {
+// AllKeys will return all keys in the database as a slice of byte slices.
+func (c Store) AllKeys() (keys [][]byte) {
 	keychan := c.Keys()
 	for key := range keychan {
-		keys = append(keys, string(key))
+		keys = append(keys, key)
 	}
 	return
 }

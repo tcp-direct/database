@@ -6,16 +6,19 @@ import (
 	"sync"
 
 	"git.tcp.direct/Mirrors/bitcask-mirror"
+
+	"git.tcp.direct/kayos/database"
 )
 
-// Casket is an implmentation of a Filer and a Searcher using Bitcask.
-type Casket struct {
+// Store is an implmentation of a Filer and a Searcher using Bitcask.
+type Store struct {
 	*bitcask.Bitcask
+	database.Searcher
 }
 
 // DB is a mapper of a Filer and Searcher implementation using Bitcask.
 type DB struct {
-	store map[string]Casket
+	store map[string]Store
 	path  string
 	mu    *sync.RWMutex
 }
@@ -23,7 +26,7 @@ type DB struct {
 // OpenDB will either open an existing set of bitcask datastores at the given directory, or it will create a new one.
 func OpenDB(path string) *DB {
 	return &DB{
-		store: make(map[string]Casket),
+		store: make(map[string]Store),
 		path:  path,
 		mu:    &sync.RWMutex{},
 	}
@@ -50,18 +53,18 @@ func (db *DB) Init(bucketName string) error {
 		return e
 	}
 
-	db.store[bucketName] = Casket{Bitcask: c}
+	db.store[bucketName] = Store{Bitcask: c}
 
 	return nil
 }
 
 // With calls the given underlying bitcask instance.
-func (db *DB) With(bucketName string) Casket {
+func (db *DB) With(bucketName string) Store {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	d, ok := db.store[bucketName]
 	if !ok {
-		return Casket{Bitcask: nil}
+		return Store{Bitcask: nil}
 	}
 	return d
 }
