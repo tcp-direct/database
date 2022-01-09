@@ -3,16 +3,21 @@ package bitcask
 import (
 	"os"
 	"testing"
+
+	c "git.tcp.direct/kayos/common"
 )
 
-var db *DB
-
-func TestDB_NewDB(t *testing.T) {
-
-	db = OpenDB("./testdata")
+func newTestDB(t *testing.T) *DB {
+	tpath := t.TempDir()
+	tdb := OpenDB(tpath)
+	if tdb == nil {
+		t.Fatalf("failed to open testdb at %s, got nil", tpath)
+	}
+	return tdb
 }
 
 func TestDB_Init(t *testing.T) {
+	var db = newTestDB(t)
 
 	type args struct {
 		bucketName string
@@ -88,12 +93,25 @@ func TestDB_Init(t *testing.T) {
 		}
 		t.Logf("[SUCCESS] got compound error: %e", err)
 	})
+
+	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err... ( ._. )
+
+	t.Run("sync", func(t *testing.T) {
+		for d := range db.store {
+			err := db.With(d).Sync()
+			if err != nil {
+				t.Errorf("failed to sync %s: %e", d, err)
+			}
+		}
+	})
+
 	t.Run("syncAll", func(t *testing.T) {
 		err := db.SyncAll()
 		if err != nil {
 			t.Fatalf("[FAIL] got compound error: %e", err)
 		}
 	})
+
 	t.Run("closeAll", func(t *testing.T) {
 		t.Cleanup(func() {
 			err := os.RemoveAll("./testdata")
@@ -105,6 +123,21 @@ func TestDB_Init(t *testing.T) {
 		err := db.CloseAll()
 		if err != nil {
 			t.Fatalf("[FAIL] got compound error: %e", err)
+		}
+		db = nil
+	})
+
+	t.Run("SyncAndCloseAll", func(t *testing.T) {
+		db = newTestDB(t)
+		for n := 0; n != 5; n++ {
+			err := db.Init(c.RandStr(5))
+			if err != nil {
+				t.Errorf("failed to initialize store for test SyncAndCloseAll: %e", err)
+			}
+		}
+		err := db.SyncAndCloseAll()
+		if err != nil {
+			t.Errorf("failed to SyncAndCloseAll: %e", err)
 		}
 	})
 }
