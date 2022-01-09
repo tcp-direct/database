@@ -102,8 +102,6 @@ const (
 // In the case of an error, WithAll will continue and return a compound form of any errors that occurred.
 // For now this is just for Close and Sync, thusly it does a hard lock on the Keeper.
 func (db *DB) WithAll(action withAllAction) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	var errs []error
 	for name, store := range db.store {
 		var err error
@@ -113,9 +111,9 @@ func (db *DB) WithAll(action withAllAction) error {
 		}
 		switch action {
 		case dclose:
-			err = namedErr(name, store.Close())
+			err = namedErr(name, db.Close(name))
 		case dsync:
-			err = namedErr(name, store.Sync())
+			err = namedErr(name, db.Sync(name))
 		default:
 			return errUnknownAction
 		}

@@ -171,7 +171,7 @@ func Test_Close(t *testing.T) {
 	t.Run("Close", func(t *testing.T) {
 		for d := range db.store {
 			oldstores = append(oldstores, d)
-			err := db.With(d).Close()
+			err := db.Close(d)
 			if err != nil {
 				t.Errorf("[FAIL] failed to close %s: %e", d, err)
 			} else {
@@ -181,7 +181,7 @@ func Test_Close(t *testing.T) {
 	})
 	t.Run("AssureClosed", func(t *testing.T) {
 		for _, d := range oldstores {
-			if err := db.With(d).Sync(); err != nil {
+			if st := db.With(d); st.Bitcask != nil {
 				t.Errorf("[FAIL] store %s should have been deleted", d)
 			}
 		}
