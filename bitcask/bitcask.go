@@ -40,7 +40,7 @@ func (db *DB) Path() string {
 func (db *DB) Init(bucketName string) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	if _, ok := db.store["bucketName"]; ok {
+	if _, ok := db.store[bucketName]; ok {
 		return errStoreExists
 	}
 	path := db.Path()
