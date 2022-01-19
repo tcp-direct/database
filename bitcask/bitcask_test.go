@@ -64,7 +64,7 @@ func TestDB_Init(t *testing.T) {
 			specErr: errStoreExists,
 		},
 		{
-			name:    "newBucket",
+			name:    "newStore",
 			fields:  db,
 			args:    args{"notsimple"},
 			wantErr: false,
@@ -83,7 +83,7 @@ func TestDB_Init(t *testing.T) {
 		})
 	}
 
-	t.Run("withBucketTest", func(t *testing.T) {
+	t.Run("withStoreTest", func(t *testing.T) {
 		key := []byte{51, 50}
 		value := []byte("string")
 		err := db.With("simple").Put(key, value)
@@ -100,7 +100,7 @@ func TestDB_Init(t *testing.T) {
 		}
 		t.Logf("Got Value %v at Key %v", string(gvalue), key)
 	})
-	t.Run("withBucketDoesntExist", func(t *testing.T) {
+	t.Run("withStoreDoesntExist", func(t *testing.T) {
 		if nope := db.With("asdfqwerty"); nope.Bitcask != nil {
 			t.Errorf("[FAIL] got non nil result for nonexistent store: %T, %v", nope, nope)
 		}

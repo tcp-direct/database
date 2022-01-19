@@ -27,7 +27,7 @@ func setupTest(storename string, t *testing.T) *DB {
 
 	err := db.Init(storename)
 	if err != nil {
-		t.Fatalf("[FAIL] couuldn't initialize bucket: %e", err)
+		t.Fatalf("[FAIL] couuldn't initialize store: %e", err)
 	}
 
 	t.Cleanup(func() {

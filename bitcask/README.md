@@ -20,7 +20,7 @@ directory, or it will create a new one.
 #### func (*DB) Close
 
 ```go
-func (db *DB) Close(bucketName string) error
+func (db *DB) Close(storeName string) error
 ```
 Close is a simple shim for bitcask's Close function.
 
@@ -34,21 +34,21 @@ CloseAll closes all bitcask datastores.
 #### func (*DB) Init
 
 ```go
-func (db *DB) Init(bucketName string) error
+func (db *DB) Init(storeName string) error
 ```
-Init opens a bitcask store at the given path to be referenced by bucketName.
+Init opens a bitcask store at the given path to be referenced by storeName.
 
 #### func (*DB) Path
 
 ```go
 func (db *DB) Path() string
 ```
-Path returns the base path where we store our bitcask "buckets".
+Path returns the base path where we store our bitcask "stores".
 
 #### func (*DB) Sync
 
 ```go
-func (db *DB) Sync(bucketName string) error
+func (db *DB) Sync(storeName string) error
 ```
 Sync is a simple shim for bitcask's Sync function.
 
@@ -69,7 +69,7 @@ SyncAndCloseAll implements the method from Keeper.
 #### func (*DB) With
 
 ```go
-func (db *DB) With(bucketName string) Store
+func (db *DB) With(storeName string) Store
 ```
 With calls the given underlying bitcask instance.
 

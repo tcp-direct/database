@@ -31,37 +31,37 @@ func OpenDB(path string) *DB {
 	}
 }
 
-// Path returns the base path where we store our bitcask "buckets".
+// Path returns the base path where we store our bitcask "stores".
 func (db *DB) Path() string {
 	return db.path
 }
 
-// Init opens a bitcask store at the given path to be referenced by bucketName.
-func (db *DB) Init(bucketName string) error {
+// Init opens a bitcask store at the given path to be referenced by storeName.
+func (db *DB) Init(storeName string) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	if _, ok := db.store[bucketName]; ok {
+	if _, ok := db.store[storeName]; ok {
 		return errStoreExists
 	}
 	path := db.Path()
 	if !strings.HasSuffix("/", db.Path()) {
 		path = db.Path() + "/"
 	}
-	c, e := bitcask.Open(path + bucketName)
+	c, e := bitcask.Open(path + storeName)
 	if e != nil {
 		return e
 	}
 
-	db.store[bucketName] = Store{Bitcask: c}
+	db.store[storeName] = Store{Bitcask: c}
 
 	return nil
 }
 
 // With calls the given underlying bitcask instance.
-func (db *DB) With(bucketName string) Store {
+func (db *DB) With(storeName string) Store {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	d, ok := db.store[bucketName]
+	d, ok := db.store[storeName]
 	if !ok {
 		return Store{Bitcask: nil}
 	}
@@ -69,10 +69,10 @@ func (db *DB) With(bucketName string) Store {
 }
 
 // Close is a simple shim for bitcask's Close function.
-func (db *DB) Close(bucketName string) error {
+func (db *DB) Close(storeName string) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	st, ok := db.store[bucketName]
+	st, ok := db.store[storeName]
 	if !ok {
 		return errBogusStore
 	}
@@ -80,15 +80,15 @@ func (db *DB) Close(bucketName string) error {
 	if err != nil {
 		return err
 	}
-	delete(db.store, bucketName)
+	delete(db.store, storeName)
 	return nil
 }
 
 // Sync is a simple shim for bitcask's Sync function.
-func (db *DB) Sync(bucketName string) error {
+func (db *DB) Sync(storeName string) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	return db.store[bucketName].Sync()
+	return db.store[storeName].Sync()
 }
 
 // withAllAction

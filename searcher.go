@@ -2,7 +2,7 @@ package database
 
 // Searcher must be able to search through our datastore(s) with strings.
 type Searcher interface {
-	// AllKeys must retrieve all keys in the datastore with the given bucketName.
+	// AllKeys must retrieve all keys in the datastore with the given storeName.
 	AllKeys() []string
 	// PrefixScan must return all keys that begin with the given prefix.
 	PrefixScan(prefix string) map[string]interface{}

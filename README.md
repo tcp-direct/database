@@ -34,16 +34,16 @@ store to satisfy an overencompassing interface.
 
 ```go
 type Keeper interface {
-	// Path should return the base path where all buckets should be stored under. (likely as subdirectories)
+	// Path should return the base path where all stores should be stored under. (likely as subdirectories)
 	Path() string
-	// Init should initialize our Filer at the given path, to be referenced and called by bucketName.
-	Init(bucketName string) error
-	// With provides access to the given bucketName by providing a pointer to the related Filer.
-	With(bucketName string) Filer
-	// Close should safely end any Filer operations of the given bucketName and close any relevant handlers.
-	Close(bucketName string) error
+	// Init should initialize our Filer at the given path, to be referenced and called by storeName.
+	Init(storeName string) error
+	// With provides access to the given storeName by providing a pointer to the related Filer.
+	With(storeName string) Filer
+	// Close should safely end any Filer operations of the given storeName and close any relevant handlers.
+	Close(storeName string) error
 	// Sync should take any volatile data and solidify it somehow if relevant. (ram to disk in most cases)
-	Sync(bucketName string) error
+	Sync(storeName string) error
 
 	CloseAll() error
 	SyncAll() error
@@ -70,7 +70,7 @@ Key represents a key in a key/value Filer.
 
 ```go
 type Searcher interface {
-	// AllKeys must retrieve all keys in the datastore with the given bucketName.
+	// AllKeys must retrieve all keys in the datastore with the given storeName.
 	AllKeys() []string
 	// PrefixScan must return all keys that begin with the given prefix.
 	PrefixScan(prefix string) map[string]interface{}
