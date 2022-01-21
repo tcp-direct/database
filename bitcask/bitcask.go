@@ -37,7 +37,7 @@ func (db *DB) Path() string {
 }
 
 // Init opens a bitcask store at the given path to be referenced by storeName.
-func (db *DB) Init(storeName string) error {
+func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if _, ok := db.store[storeName]; ok {
@@ -47,7 +47,7 @@ func (db *DB) Init(storeName string) error {
 	if !strings.HasSuffix("/", db.Path()) {
 		path = db.Path() + "/"
 	}
-	c, e := bitcask.Open(path + storeName)
+	c, e := bitcask.Open(path+storeName, bitcaskopts...)
 	if e != nil {
 		return e
 	}
