@@ -44,7 +44,7 @@ func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error {
 		return errStoreExists
 	}
 	path := db.Path()
-	if !strings.HasSuffix("/", db.Path()) {
+	if !strings.HasSuffix(db.Path(), "/") {
 		path = db.Path() + "/"
 	}
 	c, e := bitcask.Open(path+storeName, bitcaskopts...)

@@ -1,10 +1,13 @@
 # bitcask
 
+`import "git.tcp.direct/kayos/database/bitcask"`
+
+## Documentation
+
 #### type DB
 
 ```go
-type DB struct {
-}
+type DB struct {}
 ```
 
 DB is a mapper of a Filer and Searcher implementation using Bitcask.
@@ -34,7 +37,7 @@ CloseAll closes all bitcask datastores.
 #### func (*DB) Init
 
 ```go
-func (db *DB) Init(storeName string) error
+func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error
 ```
 Init opens a bitcask store at the given path to be referenced by storeName.
 
