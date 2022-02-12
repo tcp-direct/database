@@ -43,7 +43,6 @@ func TestDB_Init(t *testing.T) {
 	}
 	type test struct {
 		name    string
-		fields  *DB
 		args    args
 		wantErr bool
 		specErr error
@@ -52,20 +51,17 @@ func TestDB_Init(t *testing.T) {
 	tests := []test{
 		{
 			name:    "simple",
-			fields:  db,
 			args:    args{"simple"},
 			wantErr: false,
 		},
 		{
 			name:    "storeExists",
-			fields:  db,
 			args:    args{"simple"},
 			wantErr: true,
 			specErr: errStoreExists,
 		},
 		{
 			name:    "newStore",
-			fields:  db,
 			args:    args{"notsimple"},
 			wantErr: false,
 		},

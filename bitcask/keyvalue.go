@@ -16,7 +16,6 @@ type KeyValue struct {
 type Key struct {
 	database.Key
 	b []byte
-	s string
 }
 
 // Bytes returns the raw byte slice form of the Key.
@@ -38,7 +37,6 @@ func (k Key) Equal(k2 Key) bool {
 type Value struct {
 	database.Value
 	b []byte
-	s string
 }
 
 // Bytes returns the raw byte slice form of the Value.

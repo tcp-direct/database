@@ -105,7 +105,7 @@ const (
 // In the case of an error, withAll will continue and return a compound form of any errors that occurred.
 // For now this is just for Close and Sync, thusly it does a hard lock on the Keeper.
 func (db *DB) withAll(action withAllAction) error {
-	var errs []error
+	var errs = make([]error, len(db.store))
 	if len(db.store) < 1 {
 		return errNoStores
 	}
@@ -133,7 +133,7 @@ func (db *DB) withAll(action withAllAction) error {
 
 // SyncAndCloseAll implements the method from Keeper.
 func (db *DB) SyncAndCloseAll() error {
-	var errs []error
+	var errs = make([]error, len(db.store))
 	errSync := namedErr("sync", db.SyncAll())
 	if errSync != nil {
 		errs = append(errs, errSync)
