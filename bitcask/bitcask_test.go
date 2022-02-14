@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	c "git.tcp.direct/kayos/common"
+	"git.tcp.direct/kayos/common/entropy"
 )
 
 func newTestDB(t *testing.T) *DB {
@@ -17,12 +17,12 @@ func newTestDB(t *testing.T) *DB {
 }
 
 func seedRandKV(db *DB, store string) error {
-	return db.With(store).Put([]byte(c.RandStr(55)), []byte(c.RandStr(55)))
+	return db.With(store).Put([]byte(entropy.RandStr(55)), []byte(entropy.RandStr(55)))
 }
 
 func seedRandStores(db *DB, t *testing.T) {
 	for n := 0; n != 5; n++ {
-		randstore := c.RandStr(5)
+		randstore := entropy.RandStr(5)
 		err := db.Init(randstore)
 		if err != nil {
 			t.Errorf("failed to initialize store for test SyncAndCloseAll: %e", err)
@@ -195,7 +195,7 @@ func Test_Close(t *testing.T) {
 	})
 
 	t.Run("CantCloseBogusStore", func(t *testing.T) {
-		err := db.Close(c.RandStr(55))
+		err := db.Close(entropy.RandStr(55))
 		if err != errBogusStore {
 			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
 		}
