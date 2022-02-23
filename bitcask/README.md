@@ -1,6 +1,6 @@
 # bitcask
 
-`import "git.tcp.direct/kayos/database/bitcask"`
+`import "git.tcp.direct/tcp.direct/database/bitcask"`
 
 ## Documentation
 

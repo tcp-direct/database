@@ -6,7 +6,7 @@ import (
 
 	"git.tcp.direct/Mirrors/bitcask-mirror"
 
-	"git.tcp.direct/kayos/database"
+	"git.tcp.direct/tcp.direct/database"
 )
 
 // Store is an implmentation of a Filer and a Searcher using Bitcask.

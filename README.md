@@ -3,7 +3,7 @@
 [![Coverage](https://codecov.io/gh/yunginnanet/database/branch/master/graph/badge.svg)](https://codecov.io/gh/yunginnanet/database)
 [![Build Status](https://github.com/yunginnanet/database/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/yunginnanet/database/actions/workflows/go.yml)
 
-`import "git.tcp.direct/kayos/database"`
+`import "git.tcp.direct/tcp.direct/database"`
 
 ## Documentation
 

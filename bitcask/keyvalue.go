@@ -3,7 +3,7 @@ package bitcask
 import (
 	"git.tcp.direct/kayos/common/hash"
 
-	"git.tcp.direct/kayos/database"
+	"git.tcp.direct/tcp.direct/database"
 )
 
 // KeyValue represents a key and a value from a key/balue store.
