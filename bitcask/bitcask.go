@@ -36,10 +36,35 @@ func (db *DB) Path() string {
 	return db.path
 }
 
+var DefaultBitcaskOptions []bitcask.Option
+
+func SetDefaultBitcaskOptions(bitcaskopts ...bitcask.Option) {
+	for _, opt := range bitcaskopts {
+		DefaultBitcaskOptions = append(DefaultBitcaskOptions, opt)
+	}
+}
+
+func WithMaxDatafileSize(size int) bitcask.Option {
+	return bitcask.WithMaxDatafileSize(size)
+}
+
+func WithMaxKeySize(size uint32) bitcask.Option {
+	return bitcask.WithMaxKeySize(size)
+}
+
+func WithMaxValueSize(size uint64) bitcask.Option {
+	return bitcask.WithMaxValueSize(size)
+}
+
 // Init opens a bitcask store at the given path to be referenced by storeName.
 func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
+	if len(DefaultBitcaskOptions) > 0 {
+		bitcaskopts = append(bitcaskopts, DefaultBitcaskOptions...)
+	}
+
 	if _, ok := db.store[storeName]; ok {
 		return errStoreExists
 	}
@@ -62,10 +87,27 @@ func (db *DB) With(storeName string) Store {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	d, ok := db.store[storeName]
-	if !ok {
-		return Store{Bitcask: nil}
+	if ok {
+		return d
 	}
-	return d
+	return Store{Bitcask: nil}
+}
+
+// WithNew calls the given underlying bitcask instance, if it doesn't exist, it creates it.
+func (db *DB) WithNew(storeName string) Store {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	d, ok := db.store[storeName]
+	if ok {
+		return d
+	}
+	db.mu.RUnlock()
+	err := db.Init(storeName)
+	db.mu.RLock()
+	if err == nil {
+		return db.store[storeName]
+	}
+	return Store{Bitcask: nil}
 }
 
 // Close is a simple shim for bitcask's Close function.

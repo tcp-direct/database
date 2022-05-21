@@ -3,12 +3,12 @@ package bitcask
 import (
 	"testing"
 
-	"git.tcp.direct/kayos/common/entropy"
+	c "git.tcp.direct/kayos/common/entropy"
 )
 
 func Test_Equal(t *testing.T) {
 	t.Run("ShouldBeEqual", func(t *testing.T) {
-		v := entropy.RandStr(55)
+		v := c.RandStr(55)
 		kv1 := KeyValue{Key{b: []byte(v)}, Value{b: []byte(v)}}
 		kv2 := KeyValue{Key{b: []byte(v)}, Value{b: []byte(v)}}
 		if !kv1.Key.Equal(kv2.Key) {
@@ -35,13 +35,11 @@ func Test_Equal(t *testing.T) {
 					kv1.Value.String(), kv2.Value.String(),
 				)
 			}
-
 		}
 	})
-
 	t.Run("ShouldNotBeEqual", func(t *testing.T) {
-		v1 := entropy.RandStr(55)
-		v2 := entropy.RandStr(55)
+		v1 := c.RandStr(55)
+		v2 := c.RandStr(55)
 		kv1 := KeyValue{Key{b: []byte(v1)}, Value{b: []byte(v1)}}
 		kv2 := KeyValue{Key{b: []byte(v2)}, Value{b: []byte(v2)}}
 		if kv1.Key.Equal(kv2.Key) {
@@ -68,8 +66,6 @@ func Test_Equal(t *testing.T) {
 					kv1.Value.String(), kv2.Value.String(),
 				)
 			}
-
 		}
 	})
-
 }

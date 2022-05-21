@@ -1,8 +1,7 @@
 package bitcask
 
 import (
-	"git.tcp.direct/kayos/common/hash"
-
+	"bytes"
 	"git.tcp.direct/tcp.direct/database"
 )
 
@@ -30,7 +29,7 @@ func (k Key) String() string {
 
 // Equal determines if two keys are equal.
 func (k Key) Equal(k2 Key) bool {
-	return hash.BlakeEqual(k.Bytes(), k2.Bytes())
+	return bytes.Equal(k.Bytes(), k2.Bytes())
 }
 
 // Value represents a value in a key/value store.
@@ -51,5 +50,5 @@ func (v Value) String() string {
 
 // Equal determines if two values are equal.
 func (v Value) Equal(v2 Value) bool {
-	return hash.BlakeEqual(v.Bytes(), v2.Bytes())
+	return bytes.Equal(v.Bytes(), v2.Bytes())
 }

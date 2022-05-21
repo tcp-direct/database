@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"git.tcp.direct/kayos/common/entropy"
+	c "git.tcp.direct/kayos/common/entropy"
 )
 
 var needle = "yeet"
@@ -40,20 +40,20 @@ func setupTest(storename string, t *testing.T) *DB {
 }
 
 func genJunk(t *testing.T, correct bool) []byte {
-	item := entropy.RandStr(5)
-	bar := entropy.RandStr(5)
+	item := c.RandStr(5)
+	bar := c.RandStr(5)
 	if correct {
-		if entropy.RNG(100) > 50 {
-			item = needle + entropy.RandStr(entropy.RNG(5))
+		if c.RNG(100) > 50 {
+			item = needle + c.RandStr(c.RNG(5))
 		} else {
-			bar = entropy.RandStr(entropy.RNG(5)) + needle
+			bar = c.RandStr(c.RNG(5)) + needle
 		}
 	}
 
 	f := Foo{
 		Bar:  bar,
-		Yeet: entropy.RNG(50),
-		What: map[string]int{entropy.RandStr(5): 2, item: 7},
+		Yeet: c.RNG(50),
+		What: map[string]int{c.RandStr(5): 2, item: 7},
 	}
 
 	raw, err := json.Marshal(f)
@@ -96,11 +96,11 @@ func Test_Search(t *testing.T) {
 	var storename = "test_search"
 	var db = setupTest(storename, t)
 
-	one := entropy.RNG(100)
-	two := entropy.RNG(100)
-	three := entropy.RNG(100)
-	four := entropy.RNG(100)
-	five := entropy.RNG(100)
+	one := c.RNG(100)
+	two := c.RNG(100)
+	three := c.RNG(100)
+	four := c.RNG(100)
+	five := c.RNG(100)
 
 	addJunk(db, storename, one, two, three, four, five, t, true)
 
@@ -136,7 +136,7 @@ func Test_Search(t *testing.T) {
 	})
 
 	t.Run("NoResultsSearch", func(t *testing.T) {
-		bogus := entropy.RandStr(55)
+		bogus := c.RandStr(55)
 		t.Logf("executing search for %s", bogus)
 
 		results, err := db.With(storename).Search(bogus)
@@ -154,7 +154,7 @@ func Test_ValueExists(t *testing.T) {
 	var db = setupTest(storename, t)
 
 	t.Run("ValueExists", func(t *testing.T) {
-		needles := addJunk(db, storename, entropy.RNG(100), entropy.RNG(100), entropy.RNG(100), entropy.RNG(100), entropy.RNG(100), t, true)
+		needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t, true)
 
 		for _, needle := range needles {
 			if k, exists := db.With(storename).ValueExists(needle); !exists {
@@ -167,7 +167,7 @@ func Test_ValueExists(t *testing.T) {
 
 	t.Run("ValueShouldNotExist", func(t *testing.T) {
 		for n := 0; n != 5; n++ {
-			garbage := entropy.RandStr(55)
+			garbage := c.RandStr(55)
 			if _, exists := db.With(storename).ValueExists([]byte(garbage)); exists {
 				t.Errorf("[FAIL] store should have not contained value %v, but it did", []byte(garbage))
 			} else {
@@ -192,28 +192,28 @@ func Test_PrefixScan(t *testing.T) {
 	var storename = "test_prefix_scan"
 	var db = setupTest(storename, t)
 
-	addJunk(db, storename, entropy.RNG(5), entropy.RNG(5), entropy.RNG(5), entropy.RNG(5), entropy.RNG(5), t, false)
+	addJunk(db, storename, c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), t, false)
 
 	var needles = []KeyValue{
 		{
 			Key:   Key{b: []byte("user:Fuckhole")},
-			Value: Value{b: []byte(entropy.RandStr(55))},
+			Value: Value{b: []byte(c.RandStr(55))},
 		},
 		{
 			Key:   Key{b: []byte("user:Johnson")},
-			Value: Value{b: []byte(entropy.RandStr(55))},
+			Value: Value{b: []byte(c.RandStr(55))},
 		},
 		{
 			Key:   Key{b: []byte("user:Jackson")},
-			Value: Value{b: []byte(entropy.RandStr(55))},
+			Value: Value{b: []byte(c.RandStr(55))},
 		},
 		{
 			Key:   Key{b: []byte("user:Frackhole")},
-			Value: Value{b: []byte(entropy.RandStr(55))},
+			Value: Value{b: []byte(c.RandStr(55))},
 		},
 		{
 			Key:   Key{b: []byte("user:Baboshka")},
-			Value: Value{b: []byte(entropy.RandStr(55))},
+			Value: Value{b: []byte(c.RandStr(55))},
 		},
 	}
 

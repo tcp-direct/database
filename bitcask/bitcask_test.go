@@ -1,10 +1,11 @@
 package bitcask
 
 import (
+	"bytes"
 	"os"
 	"testing"
 
-	"git.tcp.direct/kayos/common/entropy"
+	c "git.tcp.direct/kayos/common/entropy"
 )
 
 func newTestDB(t *testing.T) *DB {
@@ -17,12 +18,12 @@ func newTestDB(t *testing.T) *DB {
 }
 
 func seedRandKV(db *DB, store string) error {
-	return db.With(store).Put([]byte(entropy.RandStr(55)), []byte(entropy.RandStr(55)))
+	return db.With(store).Put([]byte(c.RandStr(55)), []byte(c.RandStr(55)))
 }
 
 func seedRandStores(db *DB, t *testing.T) {
 	for n := 0; n != 5; n++ {
-		randstore := entropy.RandStr(5)
+		randstore := c.RandStr(5)
 		err := db.Init(randstore)
 		if err != nil {
 			t.Errorf("failed to initialize store for test SyncAndCloseAll: %e", err)
@@ -91,16 +92,24 @@ func TestDB_Init(t *testing.T) {
 		if gerr != nil {
 			t.Fatalf("[FAIL] %e", gerr)
 		}
-		if string(gvalue) != string(value) {
+		if !bytes.Equal(gvalue, value) {
 			t.Errorf("[FAIL] wanted %v, got %v", string(value), string(gvalue))
 		}
 		t.Logf("Got Value %v at Key %v", string(gvalue), key)
 	})
-	t.Run("withStoreDoesntExist", func(t *testing.T) {
-		if nope := db.With("asdfqwerty"); nope.Bitcask != nil {
-			t.Errorf("[FAIL] got non nil result for nonexistent store: %T, %v", nope, nope)
+	t.Run("withNewStoreDoesntExist", func(t *testing.T) {
+		if nope := db.WithNew("asdfqwerty"); nope.Bitcask == nil {
+			t.Fatalf("[FAIL] got nil result for nonexistent store when it should have made itself: %T, %v", nope, nope)
+		} else {
+			t.Logf("[SUCCESS] got nil Value for store that doesn't exist")
 		}
-		t.Logf("[SUCCESS] got nil Value for store that doesn't exist")
+	})
+	t.Run("withStoreDoesntExist", func(t *testing.T) {
+		if nope := db.With("afsafdassdfqwerty"); nope.Bitcask != nil {
+			t.Fatalf("[FAIL] got non nil result for nonexistent store: %T, %v", nope, nope)
+		} else {
+			t.Logf("[SUCCESS] got nil Value for store that doesn't exist")
+		}
 	})
 	t.Run("syncAllShouldFail", func(t *testing.T) {
 		db.store["wtf"] = Store{}
@@ -168,6 +177,9 @@ func Test_Sync(t *testing.T) {
 
 func Test_Close(t *testing.T) {
 	var db = newTestDB(t)
+	defer func() {
+		db = nil
+	}()
 	seedRandStores(db, t)
 	var oldstores []string
 	t.Run("Close", func(t *testing.T) {
@@ -175,7 +187,7 @@ func Test_Close(t *testing.T) {
 			oldstores = append(oldstores, d)
 			err := db.Close(d)
 			if err != nil {
-				t.Errorf("[FAIL] failed to close %s: %e", d, err)
+				t.Fatalf("[FAIL] failed to close %s: %e", d, err)
 			} else {
 				t.Logf("[+] Close() successful for %s", d)
 			}
@@ -184,14 +196,14 @@ func Test_Close(t *testing.T) {
 	t.Run("AssureClosed", func(t *testing.T) {
 		for _, d := range oldstores {
 			if st := db.With(d); st.Bitcask != nil {
-				t.Errorf("[FAIL] store %s should have been deleted", d)
+				t.Fatalf("[FAIL] store %s should have been deleted", d)
 			}
 		}
 		t.Logf("[SUCCESS] Confirmed that all stores have been closed")
 	})
 
 	t.Run("CantCloseBogusStore", func(t *testing.T) {
-		err := db.Close(entropy.RandStr(55))
+		err := db.Close(c.RandStr(55))
 		if err != errBogusStore {
 			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
 		}
