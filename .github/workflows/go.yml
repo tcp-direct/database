@@ -1,4 +1,4 @@
-name: Build Status
+name: Vibe Check
 
 on: [push, pull_request]
 
@@ -11,7 +11,9 @@ jobs:
           fetch-depth: 2
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17'
+          go-version: '1.18'
+      - name: Water's fine
+        run: go test -race -v ./...
       - name: Run coverage
         run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
       - name: Upload coverage to Codecov
