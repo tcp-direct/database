@@ -5,7 +5,7 @@ import (
 	"git.tcp.direct/tcp.direct/database"
 )
 
-// KeyValue represents a key and a value from a key/balue store.
+// KeyValue represents a key and a value from a key/value store.
 type KeyValue struct {
 	Key   Key
 	Value Value

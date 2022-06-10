@@ -116,7 +116,7 @@ type KeyValue struct {
 }
 ```
 
-KeyValue represents a key and a value from a key/balue store.
+KeyValue represents a key and a value from a key/value store.
 
 #### type Store
 
