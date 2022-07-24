@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	c "git.tcp.direct/kayos/common/entropy"
 )
 
 func newTestDB(t *testing.T) *DB {
+	t.Helper()
 	tpath := t.TempDir()
 	tdb := OpenDB(tpath)
 	if tdb == nil {
@@ -158,7 +160,6 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 
 func Test_Sync(t *testing.T) {
 	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err...
-
 	var db = newTestDB(t)
 	seedRandStores(db, t)
 	t.Run("Sync", func(t *testing.T) {
@@ -226,4 +227,162 @@ func Test_withAll(t *testing.T) {
 			t.Errorf("[FAIL] wanted error %e, got error %e", errUnknownAction, err)
 		}
 	})
+}
+
+func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop
+	tpath := t.TempDir()
+	tdb := OpenDB(tpath)
+	if tdb == nil {
+		t.Fatalf("failed to open testdb at %s, got nil", tpath)
+	}
+	defer func() {
+		err := tdb.CloseAll()
+		if err != nil {
+			t.Fatalf("[FAIL] failed to close testdb: %e", err)
+		}
+	}()
+	t.Run("WithMaxKeySize", func(t *testing.T) {
+		err := tdb.Init(t.Name(), WithMaxKeySize(10))
+		if err != nil {
+			t.Fatalf("[FAIL] failed to init testdb for %s: %e", t.Name(), err)
+		}
+		err = tdb.With(t.Name()).Put([]byte(c.RandStr(10)), []byte("asdf"))
+		if err != nil {
+			t.Errorf("[FAIL] failed to put key: %e", err)
+		}
+		err = tdb.With(t.Name()).Put([]byte(c.RandStr(11)), []byte("asdf"))
+		if err == nil {
+			t.Errorf("[FAIL] expected error while using a key larger than the max key value option, got nil")
+		}
+	})
+	t.Run("WithMaxValueSize", func(t *testing.T) {
+		err := tdb.Init(t.Name(), WithMaxValueSize(10))
+		if err != nil {
+			t.Fatalf("[FAIL] failed to init testdb for %s: %e", t.Name(), err)
+		}
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(10)))
+		if err != nil {
+			t.Errorf("[FAIL] failed to put key: %e", err)
+		}
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(11)))
+		if err == nil {
+			t.Errorf("[FAIL] expected error while using a value larger than the max key value option, got nil")
+		}
+	})
+	t.Run("WithMaxDataFileSize", func(t *testing.T) {
+		err := tdb.Init(t.Name(), WithMaxDatafileSize(10))
+		if err != nil {
+			t.Fatalf("[FAIL] failed to init testdb for %s: %e", t.Name(), err)
+		}
+		checkDir := func() int {
+			targetDir := tpath + "/" + t.Name()
+			var files []os.DirEntry
+			files, err = os.ReadDir(targetDir)
+			if err != nil {
+				t.Fatalf("[FAIL] failed to read directory %s: %e", targetDir, err)
+			}
+			datafilecount := 0
+			for _, file := range files {
+				if strings.Contains(file.Name(), ".data") {
+					datafilecount++
+				}
+			}
+			return datafilecount
+		}
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(8)))
+		if err != nil {
+			t.Fatalf("[FAIL] failed to put key: %e", err)
+		}
+		if checkDir() != 1 {
+			t.Errorf("[FAIL] expected 1 datafile, got %d", checkDir())
+		}
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(10)))
+		if err != nil {
+			t.Fatalf("[FAIL] failed to put key: %e", err)
+		}
+		if checkDir() != 2 {
+			t.Errorf("[FAIL] expected 2 datafile, got %d", checkDir())
+		}
+	})
+	t.Run("SetDefaultBitcaskOptions", func(t *testing.T) {
+		SetDefaultBitcaskOptions(
+			WithMaxKeySize(20),
+			WithMaxValueSize(20),
+			WithMaxDatafileSize(20),
+		)
+		err := tdb.Init(t.Name())
+		if err != nil {
+			t.Fatalf("[FAIL] failed to init testdb for %s: %e", t.Name(), err)
+		}
+		checkDir := func() int {
+			targetDir := tpath + "/" + t.Name()
+			var files []os.DirEntry
+			files, err = os.ReadDir(targetDir)
+			if err != nil {
+				t.Fatalf("[FAIL] failed to read directory %s: %e", targetDir, err)
+			}
+			datafilecount := 0
+			for _, file := range files {
+				if strings.Contains(file.Name(), ".data") {
+					datafilecount++
+				}
+			}
+			return datafilecount
+		}
+		err = tdb.With(t.Name()).Put([]byte(c.RandStr(20)), []byte("asdf"))
+		if err != nil {
+			t.Errorf("[FAIL] failed to put key: %e", err)
+		}
+		err = tdb.With(t.Name()).Put([]byte(c.RandStr(21)), []byte("asdf"))
+		if err == nil {
+			t.Errorf("[FAIL] expected error while using a key larger than the max key value option, got nil")
+		}
+		//
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(9)))
+		if err != nil {
+			t.Errorf("[FAIL] failed to put key: %e", err)
+		}
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(21)))
+		if err == nil {
+			t.Errorf("[FAIL] expected error while using a value larger than the max key value option, got nil")
+		}
+		//
+		if checkDir() != 2 {
+			t.Fatalf("[FAIL] expected 2 datafiles, got %d", checkDir())
+		}
+		//
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(11)))
+		if err != nil {
+			t.Fatalf("[FAIL] failed to put key: %e", err)
+		}
+		if checkDir() != 3 {
+			t.Fatalf("[FAIL] expected 3 datafiles, got %d", checkDir())
+		}
+		err = tdb.With(t.Name()).Put([]byte("asdf"), []byte(c.RandStr(10)))
+		if err != nil {
+			t.Fatalf("[FAIL] failed to put key: %e", err)
+		}
+		if checkDir() != 4 {
+			t.Errorf("[FAIL] expected 4 datafile, got %d", checkDir())
+		}
+	})
+}
+func Test_PhonyInit(t *testing.T) {
+	newtmp := t.TempDir()
+	err := os.MkdirAll(newtmp+"/"+t.Name(), 0755)
+	if err != nil {
+		t.Fatalf("[FAIL] failed to create test directory: %e", err)
+	}
+	err = os.Symlink("/dev/null", newtmp+"/"+t.Name()+"/config.json")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	tdb := OpenDB(newtmp)
+	defer func() {
+		_ = tdb.CloseAll()
+	}()
+	err = tdb.Init(t.Name())
+	if err == nil {
+		t.Error("[FAIL] expected error while trying to open a store where a config file exists, got nil")
+	}
 }

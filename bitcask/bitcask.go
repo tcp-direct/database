@@ -78,9 +78,7 @@ func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error {
 	if e != nil {
 		return e
 	}
-
 	db.store[storeName] = Store{Bitcask: c}
-
 	return nil
 }
 
@@ -179,7 +177,7 @@ func (db *DB) withAll(action withAllAction) error {
 func (db *DB) SyncAndCloseAll() error {
 	var errs = make([]error, len(db.store))
 	errSync := namedErr("sync", db.SyncAll())
-	if errSync != nil {
+	if err    Sync != nil {
 		errs = append(errs, errSync)
 	}
 	errClose := namedErr("close", db.CloseAll())
