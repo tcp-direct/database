@@ -5,10 +5,12 @@ import (
 	"strings"
 )
 
-var errUnknownAction = errors.New("unknown action")
-var errBogusStore = errors.New("bogus store backend")
-var errStoreExists = errors.New("store name already exists")
-var errNoStores = errors.New("no stores initialized")
+var (
+	errUnknownAction = errors.New("unknown action")
+	errBogusStore    = errors.New("bogus store backend")
+	errStoreExists   = errors.New("store name already exists")
+	errNoStores      = errors.New("no stores initialized")
+)
 
 func namedErr(name string, err error) error {
 	if err == nil {

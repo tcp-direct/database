@@ -106,9 +106,7 @@ func Test_Search(t *testing.T) {
 
 	// For coverage
 	db.store["yeet"] = Store{Bitcask: nil}
-
 	t.Run("BasicSearch", func(t *testing.T) {
-
 		t.Logf("executing search for %s", needle)
 
 		results, err := db.With(storename).Search(needle)
@@ -184,63 +182,36 @@ func Test_ValueExists(t *testing.T) {
 		} else {
 			t.Log("[SUCCESS] store succeeded in being nil")
 		}
-
 	})
 }
 
 func Test_PrefixScan(t *testing.T) {
 	var storename = "test_prefix_scan"
 	var db = setupTest(storename, t)
-
 	addJunk(db, storename, c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), t, false)
-
 	var needles = []KeyValue{
-		{
-			Key:   Key{b: []byte("user:Fuckhole")},
-			Value: Value{b: []byte(c.RandStr(55))},
-		},
-		{
-			Key:   Key{b: []byte("user:Johnson")},
-			Value: Value{b: []byte(c.RandStr(55))},
-		},
-		{
-			Key:   Key{b: []byte("user:Jackson")},
-			Value: Value{b: []byte(c.RandStr(55))},
-		},
-		{
-			Key:   Key{b: []byte("user:Frackhole")},
-			Value: Value{b: []byte(c.RandStr(55))},
-		},
-		{
-			Key:   Key{b: []byte("user:Baboshka")},
-			Value: Value{b: []byte(c.RandStr(55))},
-		},
+		{Key: Key{b: []byte("user:Frickhole")}, Value: Value{b: []byte(c.RandStr(55))}},
+		{Key: Key{b: []byte("user:Johnson")}, Value: Value{b: []byte(c.RandStr(55))}},
+		{Key: Key{b: []byte("user:Jackson")}, Value: Value{b: []byte(c.RandStr(55))}},
+		{Key: Key{b: []byte("user:Frackhole")}, Value: Value{b: []byte(c.RandStr(55))}},
+		{Key: Key{b: []byte("user:Baboshka")}, Value: Value{b: []byte(c.RandStr(55))}},
 	}
-
 	for _, kv := range needles {
 		err := db.With(storename).Put(kv.Key.Bytes(), kv.Value.Bytes())
 		if err != nil {
-			t.Errorf("failed to add data to %s: %e", storename, err)
+			t.Fatalf("failed to add data to %s: %e", storename, err)
 		} else {
 			t.Logf("added needle with key(value): %s(%s)", kv.Key.String(), kv.Value.String())
 		}
-
 	}
-
 	res, err := db.With(storename).PrefixScan("user:")
 	if err != nil {
 		t.Errorf("failed to PrefixScan: %e", err)
 	}
-
 	if len(res) != len(needles) {
-		t.Errorf(
-			"[FAIL] Length of results (%d) is not the amount of needles we generated (%d)",
-			len(res), len(needles),
-		)
+		t.Errorf("[FAIL] Length of results (%d) is not the amount of needles we generated (%d)", len(res), len(needles))
 	}
-
 	var keysmatched = 0
-
 	for _, kv := range res {
 		for _, ogkv := range needles {
 			if kv.Key.String() != ogkv.Key.String() {
@@ -248,21 +219,12 @@ func Test_PrefixScan(t *testing.T) {
 			}
 			t.Logf("[%s] Found needle key", ogkv.Key.String())
 			keysmatched++
-
 			if kv.Value.String() != ogkv.Value.String() {
-				t.Errorf(
-					"[FAIL] values of key %s should have matched. wanted: %s, got: %s",
-					kv.Key.String(), ogkv.Value.String(), kv.Value.String(),
-				)
+				t.Errorf("[FAIL] values of key %s should have matched. wanted: %s, got: %s", kv.Key.String(), ogkv.Value.String(), kv.Value.String())
 			}
-
-			t.Logf(
-				"[%s] Found needle value: %s",
-				ogkv.Key.String(), ogkv.Value.String(),
-			)
+			t.Logf("[%s] Found needle value: %s", ogkv.Key.String(), ogkv.Value.String())
 		}
 	}
-
 	if keysmatched != len(needles) {
 		t.Errorf("Needed to match %d keys, only matched %d", len(needles), len(needles))
 	}

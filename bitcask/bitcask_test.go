@@ -2,6 +2,7 @@ package bitcask
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"testing"
 
@@ -36,19 +37,15 @@ func seedRandStores(db *DB, t *testing.T) {
 	t.Logf("seeded random stores with random values for test %s", t.Name())
 }
 
-func TestDB_Init(t *testing.T) {
+func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 	var db = newTestDB(t)
-
-	type args struct {
-		storeName string
-	}
+	type args struct{ storeName string }
 	type test struct {
 		name    string
 		args    args
 		wantErr bool
 		specErr error
 	}
-
 	tests := []test{
 		{
 			name:    "simple",
@@ -74,7 +71,7 @@ func TestDB_Init(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("[FAIL] Init() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if (err != nil) != tt.wantErr && tt.specErr != nil && err != tt.specErr {
+			if (err != nil) != tt.wantErr && tt.specErr != nil && !errors.Is(err, tt.specErr) {
 				t.Errorf("[FAIL] wanted error %e, got error %e", tt.specErr, err)
 			}
 		})
@@ -97,6 +94,7 @@ func TestDB_Init(t *testing.T) {
 		}
 		t.Logf("Got Value %v at Key %v", string(gvalue), key)
 	})
+
 	t.Run("withNewStoreDoesntExist", func(t *testing.T) {
 		if nope := db.WithNew("asdfqwerty"); nope.Bitcask == nil {
 			t.Fatalf("[FAIL] got nil result for nonexistent store when it should have made itself: %T, %v", nope, nope)
@@ -159,7 +157,7 @@ func TestDB_Init(t *testing.T) {
 }
 
 func Test_Sync(t *testing.T) {
-	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err... ( ._. )
+	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err...
 
 	var db = newTestDB(t)
 	seedRandStores(db, t)
@@ -204,7 +202,7 @@ func Test_Close(t *testing.T) {
 
 	t.Run("CantCloseBogusStore", func(t *testing.T) {
 		err := db.Close(c.RandStr(55))
-		if err != errBogusStore {
+		if !errors.Is(err, errBogusStore) {
 			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
 		}
 	})
@@ -214,7 +212,7 @@ func Test_withAll(t *testing.T) {
 	var db = newTestDB(t)
 	t.Run("withAllNoStores", func(t *testing.T) {
 		err := db.withAll(121)
-		if err != errNoStores {
+		if !errors.Is(err, errNoStores) {
 			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
 		}
 	})
@@ -224,7 +222,7 @@ func Test_withAll(t *testing.T) {
 			t.Errorf("[FAIL] unexpected error: %e", err)
 		}
 		wAllErr := db.withAll(121)
-		if wAllErr != errUnknownAction {
+		if !errors.Is(wAllErr, errUnknownAction) {
 			t.Errorf("[FAIL] wanted error %e, got error %e", errUnknownAction, err)
 		}
 	})

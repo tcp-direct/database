@@ -36,22 +36,24 @@ func (db *DB) Path() string {
 	return db.path
 }
 
-var DefaultBitcaskOptions []bitcask.Option
+var defaultBitcaskOptions []bitcask.Option
 
+// SetDefaultBitcaskOptions options will set the options used for all subsequent bitcask stores that are initialized.
 func SetDefaultBitcaskOptions(bitcaskopts ...bitcask.Option) {
-	for _, opt := range bitcaskopts {
-		DefaultBitcaskOptions = append(DefaultBitcaskOptions, opt)
-	}
+	defaultBitcaskOptions = append(defaultBitcaskOptions, bitcaskopts...)
 }
 
+// WithMaxDatafileSize is a shim for bitcask's WithMaxDataFileSize function.
 func WithMaxDatafileSize(size int) bitcask.Option {
 	return bitcask.WithMaxDatafileSize(size)
 }
 
+// WithMaxKeySize is a shim for bitcask's WithMaxKeySize function.
 func WithMaxKeySize(size uint32) bitcask.Option {
 	return bitcask.WithMaxKeySize(size)
 }
 
+// WithMaxValueSize is a shim for bitcask's WithMaxValueSize function.
 func WithMaxValueSize(size uint64) bitcask.Option {
 	return bitcask.WithMaxValueSize(size)
 }
@@ -61,8 +63,8 @@ func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if len(DefaultBitcaskOptions) > 0 {
-		bitcaskopts = append(bitcaskopts, DefaultBitcaskOptions...)
+	if len(defaultBitcaskOptions) > 0 {
+		bitcaskopts = append(bitcaskopts, defaultBitcaskOptions...)
 	}
 
 	if _, ok := db.store[storeName]; ok {
@@ -173,7 +175,7 @@ func (db *DB) withAll(action withAllAction) error {
 	return compoundErrors(errs)
 }
 
-// SyncAndCloseAll implements the method from Keeper.
+// SyncAndCloseAll implements the method from Keeper to sync and close all bitcask stores.
 func (db *DB) SyncAndCloseAll() error {
 	var errs = make([]error, len(db.store))
 	errSync := namedErr("sync", db.SyncAll())
