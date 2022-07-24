@@ -177,7 +177,7 @@ func (db *DB) withAll(action withAllAction) error {
 func (db *DB) SyncAndCloseAll() error {
 	var errs = make([]error, len(db.store))
 	errSync := namedErr("sync", db.SyncAll())
-	if err    Sync != nil {
+	if errSync != nil {
 		errs = append(errs, errSync)
 	}
 	errClose := namedErr("close", db.CloseAll())
