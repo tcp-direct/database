@@ -1,6 +1,7 @@
 package bitcask
 
 import (
+	"errors"
 	"strings"
 	"sync"
 
@@ -13,6 +14,12 @@ import (
 type Store struct {
 	*bitcask.Bitcask
 	database.Searcher
+	closed bool
+}
+
+// Backend returns the underlying bitcask instance.
+func (s Store) Backend() any {
+	return s.Bitcask
 }
 
 // DB is a mapper of a Filer and Searcher implementation using Bitcask.
@@ -20,6 +27,17 @@ type DB struct {
 	store map[string]Store
 	path  string
 	mu    *sync.RWMutex
+}
+
+// AllStores returns a list of all bitcask datastores.
+func (db *DB) AllStores() []database.Filer {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	var stores = make([]database.Filer, len(db.store))
+	for _, s := range db.store {
+		stores = append(stores, s)
+	}
+	return stores
 }
 
 // OpenDB will either open an existing set of bitcask datastores at the given directory, or it will create a new one.
@@ -59,7 +77,14 @@ func WithMaxValueSize(size uint64) bitcask.Option {
 }
 
 // Init opens a bitcask store at the given path to be referenced by storeName.
-func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error {
+func (db *DB) Init(storeName string, opts ...any) error {
+	var bitcaskopts []bitcask.Option
+	for _, opt := range opts {
+		if _, ok := opt.(bitcask.Option); !ok {
+			return errors.New("invalid bitcask option type")
+		}
+		bitcaskopts = append(bitcaskopts, opt.(bitcask.Option))
+	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -83,18 +108,18 @@ func (db *DB) Init(storeName string, bitcaskopts ...bitcask.Option) error {
 }
 
 // With calls the given underlying bitcask instance.
-func (db *DB) With(storeName string) Store {
+func (db *DB) With(storeName string) database.Store {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	d, ok := db.store[storeName]
 	if ok {
 		return d
 	}
-	return Store{Bitcask: nil}
+	return nil
 }
 
 // WithNew calls the given underlying bitcask instance, if it doesn't exist, it creates it.
-func (db *DB) WithNew(storeName string) Store {
+func (db *DB) WithNew(storeName string) database.Filer {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	d, ok := db.store[storeName]
@@ -159,9 +184,9 @@ func (db *DB) withAll(action withAllAction) error {
 		}
 		switch action {
 		case dclose:
-			err = namedErr(name, db.Close(name))
+			err = namedErr(name, store.Close())
 		case dsync:
-			err = namedErr(name, db.Sync(name))
+			err = namedErr(name, store.Sync())
 		default:
 			return errUnknownAction
 		}

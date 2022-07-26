@@ -132,14 +132,14 @@ Store is an implmentation of a Filer and a Searcher using Bitcask.
 #### func (Store) AllKeys
 
 ```go
-func (c Store) AllKeys() (keys [][]byte)
+func (s Store) AllKeys() (keys [][]byte)
 ```
 AllKeys will return all keys in the database as a slice of byte slices.
 
 #### func (Store) PrefixScan
 
 ```go
-func (c Store) PrefixScan(prefix string) ([]KeyValue, error)
+func (s Store) PrefixScan(prefix string) ([]KeyValue, error)
 ```
 PrefixScan will scan a Store for all keys that have a matching prefix of the
 given string and return a map of keys and values. (map[Key]Value)
@@ -147,7 +147,7 @@ given string and return a map of keys and values. (map[Key]Value)
 #### func (Store) Search
 
 ```go
-func (c Store) Search(query string) ([]KeyValue, error)
+func (s Store) Search(query string) ([]KeyValue, error)
 ```
 Search will search for a given string within all values inside of a Store. Note,
 type casting will be necessary. (e.g: []byte or string)
@@ -155,7 +155,7 @@ type casting will be necessary. (e.g: []byte or string)
 #### func (Store) ValueExists
 
 ```go
-func (c Store) ValueExists(value []byte) (key []byte, ok bool)
+func (s Store) ValueExists(value []byte) (key []byte, ok bool)
 ```
 ValueExists will check for the existence of a Value anywhere within the
 keyspace, returning the Key and true if found, or nil and false if not found.

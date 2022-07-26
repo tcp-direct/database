@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	c "git.tcp.direct/kayos/common/entropy"
+	"github.com/davecgh/go-spew/spew"
+
+	"git.tcp.direct/tcp.direct/database/kv"
 )
 
 var needle = "yeet"
@@ -108,25 +111,31 @@ func Test_Search(t *testing.T) {
 	db.store["yeet"] = Store{Bitcask: nil}
 	t.Run("BasicSearch", func(t *testing.T) {
 		t.Logf("executing search for %s", needle)
-
-		results, err := db.With(storename).Search(needle)
-		if err != nil {
-			t.Errorf("failed to search: %e", err)
-		}
+		resChan, errChan := db.With(storename).Search(needle)
 		var keys = []int{one, two, three, four, five}
 		var needed = len(keys)
-		for _, kv := range results {
-			keyint, err := strconv.Atoi(kv.Key.String())
-			if err != nil {
-				t.Fatalf("failed to convert Key to int: %e", err)
-			}
+
+		for keyValue := range resChan {
+			keyint, err := strconv.Atoi(keyValue.Key.String())
 			for _, k := range keys {
 				if keyint == k {
 					needed--
 				}
 			}
 			keys = append(keys, keyint)
-			t.Logf("Found Key: %s, Value: %s", kv.Key.String(), kv.Value.String())
+			t.Logf("Found Key: %s, Value: %s", keyValue.Key.String(), keyValue.Value.String())
+
+			if err != nil {
+				t.Fatalf("failed to convert Key to int: %e", err)
+			}
+			select {
+			case err := <-errChan:
+				if err != nil {
+					t.Fatalf("failed to search: %e", err)
+				}
+			default:
+				continue
+			}
 		}
 		if needed != 0 {
 			t.Errorf("Needed %d results, got %d", len(keys), len(keys)-needed)
@@ -136,13 +145,19 @@ func Test_Search(t *testing.T) {
 	t.Run("NoResultsSearch", func(t *testing.T) {
 		bogus := c.RandStr(55)
 		t.Logf("executing search for %s", bogus)
-
-		results, err := db.With(storename).Search(bogus)
-		if err != nil {
-			t.Errorf("failed to search: %e", err)
-		}
-		if len(results) > 0 {
-			t.Errorf("[FAIL] got %d results, wanted 0", len(results))
+		var results []*kv.KeyValue
+		resChan, errChan := db.With(storename).Search(bogus)
+		select {
+		case err := <-errChan:
+			t.Errorf("failed to search: %s", err.Error())
+		case r := <-resChan:
+			if r != nil {
+				spew.Dump(r)
+				results = append(results, r)
+			}
+			if len(results) > 0 {
+				t.Errorf("[FAIL] got %d results, wanted 0", len(results))
+			}
 		}
 	})
 }
@@ -189,40 +204,51 @@ func Test_PrefixScan(t *testing.T) {
 	var storename = "test_prefix_scan"
 	var db = setupTest(storename, t)
 	addJunk(db, storename, c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), t, false)
-	var needles = []KeyValue{
-		{Key: Key{b: []byte("user:Frickhole")}, Value: Value{b: []byte(c.RandStr(55))}},
-		{Key: Key{b: []byte("user:Johnson")}, Value: Value{b: []byte(c.RandStr(55))}},
-		{Key: Key{b: []byte("user:Jackson")}, Value: Value{b: []byte(c.RandStr(55))}},
-		{Key: Key{b: []byte("user:Frackhole")}, Value: Value{b: []byte(c.RandStr(55))}},
-		{Key: Key{b: []byte("user:Baboshka")}, Value: Value{b: []byte(c.RandStr(55))}},
+	var needles = []*kv.KeyValue{
+		kv.NewKeyValue(kv.NewKey([]byte("user:Frickhole")), kv.NewValue([]byte(c.RandStr(55)))),
+		kv.NewKeyValue(kv.NewKey([]byte("user:Johnson")), kv.NewValue([]byte(c.RandStr(55)))),
+		kv.NewKeyValue(kv.NewKey([]byte("user:Jackson")), kv.NewValue([]byte(c.RandStr(55)))),
+		kv.NewKeyValue(kv.NewKey([]byte("user:Frackhole")), kv.NewValue([]byte(c.RandStr(55)))),
+		kv.NewKeyValue(kv.NewKey([]byte("user:Baboshka")), kv.NewValue([]byte(c.RandStr(55)))),
 	}
-	for _, kv := range needles {
-		err := db.With(storename).Put(kv.Key.Bytes(), kv.Value.Bytes())
+	for _, combo := range needles {
+		err := db.With(storename).Put(combo.Key.Bytes(), combo.Value.Bytes())
 		if err != nil {
 			t.Fatalf("failed to add data to %s: %e", storename, err)
 		} else {
-			t.Logf("added needle with key(value): %s(%s)", kv.Key.String(), kv.Value.String())
+			t.Logf("added needle with key(value): %s(%s)", combo.Key.String(), combo.Value.String())
 		}
 	}
-	res, err := db.With(storename).PrefixScan("user:")
-	if err != nil {
-		t.Errorf("failed to PrefixScan: %e", err)
+	resChan, errChan := db.With(storename).PrefixScan("user:")
+	var results []*kv.KeyValue
+	for keyValue := range resChan {
+		results = append(results, keyValue)
+		select {
+		case err := <-errChan:
+			if err != nil {
+				t.Fatalf("failed to PrefixScan: %e", err)
+			}
+			break
+		default:
+			continue
+		}
 	}
-	if len(res) != len(needles) {
-		t.Errorf("[FAIL] Length of results (%d) is not the amount of needles we generated (%d)", len(res), len(needles))
+	if len(results) != len(needles) {
+		t.Errorf("[FAIL] Length of results (%d) is not the amount of needles we generated (%d)", len(results), len(needles))
 	}
 	var keysmatched = 0
-	for _, kv := range res {
+	for _, result := range results {
 		for _, ogkv := range needles {
-			if kv.Key.String() != ogkv.Key.String() {
+			if result.Key.String() != ogkv.Key.String() {
 				continue
 			}
-			t.Logf("[%s] Found needle key", ogkv.Key.String())
+			t.Logf("Found needle key: %s", result.Key.String())
 			keysmatched++
-			if kv.Value.String() != ogkv.Value.String() {
-				t.Errorf("[FAIL] values of key %s should have matched. wanted: %s, got: %s", kv.Key.String(), ogkv.Value.String(), kv.Value.String())
+			if result.Value.String() != ogkv.Value.String() {
+				t.Errorf("[FAIL] values of key %s should have matched. wanted: %s, got: %s",
+					result.Key.String(), ogkv.Value.String(), result.Value.String())
 			}
-			t.Logf("[%s] Found needle value: %s", ogkv.Key.String(), ogkv.Value.String())
+			t.Logf("Found needle value: %s", ogkv.Value.String())
 		}
 	}
 	if keysmatched != len(needles) {

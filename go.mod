@@ -5,6 +5,7 @@ go 1.18
 require (
 	git.tcp.direct/Mirrors/bitcask-mirror v0.0.0-20220228092422-1ec4297c7e34
 	git.tcp.direct/kayos/common v0.7.0
+	github.com/davecgh/go-spew v1.1.1
 )
 
 require (

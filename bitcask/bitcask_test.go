@@ -96,17 +96,35 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		}
 		t.Logf("Got Value %v at Key %v", string(gvalue), key)
 	})
-
+	t.Run("withNewStoreDoesExist", func(t *testing.T) {
+		nope := db.WithNew("bing")
+		if err := nope.Put([]byte("key"), []byte("value")); err != nil {
+			t.Fatalf("[FAIL] %e", err)
+		}
+		err := nope.Put([]byte("bing"), []byte("bong"))
+		if err != nil {
+			t.Fatalf("[FAIL] %e", err)
+		}
+		yup := db.WithNew("bing")
+		res, err := yup.Get([]byte("bing"))
+		if err != nil {
+			t.Errorf("[FAIL] %e", err)
+		}
+		if !bytes.Equal(res, []byte("bong")) {
+			t.Errorf("[FAIL] wanted %v, got %v", string([]byte("bong")), string(res))
+		}
+	})
 	t.Run("withNewStoreDoesntExist", func(t *testing.T) {
-		if nope := db.WithNew("asdfqwerty"); nope.Bitcask == nil {
+		if nope := db.WithNew("asdfqwerty"); nope.Backend() == nil {
 			t.Fatalf("[FAIL] got nil result for nonexistent store when it should have made itself: %T, %v", nope, nope)
 		} else {
 			t.Logf("[SUCCESS] got nil Value for store that doesn't exist")
 		}
 	})
 	t.Run("withStoreDoesntExist", func(t *testing.T) {
-		if nope := db.With("afsafdassdfqwerty"); nope.Bitcask != nil {
-			t.Fatalf("[FAIL] got non nil result for nonexistent store: %T, %v", nope, nope)
+		nope := db.With(c.RandStr(10))
+		if nope != nil {
+			t.Fatalf("[FAIL] got non nil result for nonexistent store: %T, %v", nope.Backend(), nope.Backend())
 		} else {
 			t.Logf("[SUCCESS] got nil Value for store that doesn't exist")
 		}
@@ -194,7 +212,7 @@ func Test_Close(t *testing.T) {
 	})
 	t.Run("AssureClosed", func(t *testing.T) {
 		for _, d := range oldstores {
-			if st := db.With(d); st.Bitcask != nil {
+			if st := db.With(d); st != nil {
 				t.Fatalf("[FAIL] store %s should have been deleted", d)
 			}
 		}
