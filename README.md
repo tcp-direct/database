@@ -12,6 +12,9 @@
 ```go
 type Filer interface {
 
+	// Backend returns the underlying key/value store.
+	Backend() any
+
 	// Has should return true if the given key has an associated value.
 	Has(key []byte) bool
 	// Get should retrieve the byte slice corresponding to the given key, and any associated errors upon failure.
@@ -20,6 +23,10 @@ type Filer interface {
 	Put(key []byte, value []byte) error
 	// Delete should delete the key and the value associated with the given key, and return an error upon failure.
 	Delete(key []byte) error
+	// Close should safely end any Filer operations of the given dataStore and close any relevant handlers.
+	Close() error
+	// Sync should take any volatile data and solidify it somehow if relevant. (ram to disk in most cases)
+	Sync() error
 }
 ```
 
@@ -39,13 +46,11 @@ type Keeper interface {
 	// Path should return the base path where all stores should be stored under. (likely as subdirectories)
 	Path() string
 	// Init should initialize our Filer at the given path, to be referenced and called by dataStore.
-	Init(dataStore []byte) error
+	Init(name string, options ...any) error
 	// With provides access to the given dataStore by providing a pointer to the related Filer.
-	With(dataStore []byte) Filer
-	// Close should safely end any Filer operations of the given dataStore and close any relevant handlers.
-	Close(dataStore []byte) error
-	// Sync should take any volatile data and solidify it somehow if relevant. (ram to disk in most cases)
-	Sync(dataStore []byte) error
+	With(name string) Store
+
+	AllStores() []Filer
 
 	CloseAll() error
 	SyncAll() error
@@ -56,28 +61,16 @@ Keeper will be in charge of the more meta operations involving Filers. This
 includes operations like initialization, syncing to disk if applicable, and
 backing up.
 
-#### type Key
-
-```go
-type Key interface {
-	Bytes() []byte
-	String() string
-	Equal(Key) bool
-}
-```
-
-Key represents a key in a key/value Filer.
-
 #### type Searcher
 
 ```go
 type Searcher interface {
 	// AllKeys must retrieve all keys in the datastore with the given storeName.
-	AllKeys() []string
-	// PrefixScan must return all keys that begin with the given prefix.
-	PrefixScan(prefix string) map[string]interface{}
-	// Search must be able to search through the contents of our database and return a map of results.
-	Search(query string) map[string]interface{}
+	AllKeys() [][]byte
+	// PrefixScan must retrieve all keys in the datastore and stream them to the given channel.
+	PrefixScan(prefix string) (<-chan *kv.KeyValue, chan error)
+	// Search must be able to search through the value contents of our database and stream the results to the given channel.
+	Search(query string) (<-chan *kv.KeyValue, chan error)
 	// ValueExists searches for an exact match of the given value and returns the key that contains it.
 	ValueExists(value []byte) (key []byte, ok bool)
 }
@@ -85,15 +78,11 @@ type Searcher interface {
 
 Searcher must be able to search through our datastore(s) with strings.
 
-#### type Value
+#### type Store
 
 ```go
-type Value interface {
-	Bytes() []byte
-	String() string
-	Equal(Value) bool
+type Store interface {
+	Filer
+	Searcher
 }
 ```
-
-Value represents a value in a key/value Filer.
-
