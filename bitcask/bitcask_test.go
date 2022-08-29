@@ -150,7 +150,6 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 			t.Fatalf("[FAIL] got compound error: %e", err)
 		}
 	})
-
 	t.Run("closeAll", func(t *testing.T) {
 		t.Cleanup(func() {
 			err := os.RemoveAll("./testdata")
@@ -165,7 +164,6 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		}
 		db = nil
 	})
-
 	t.Run("SyncAndCloseAll", func(t *testing.T) {
 		db = newTestDB(t)
 		seedRandStores(db, t)
@@ -229,10 +227,19 @@ func Test_Close(t *testing.T) {
 
 func Test_withAll(t *testing.T) {
 	var db = newTestDB(t)
+	defer db.CloseAll()
 	t.Run("withAllNoStores", func(t *testing.T) {
 		err := db.withAll(121)
 		if !errors.Is(err, ErrNoStores) {
 			t.Errorf("[FAIL] got err %e, wanted err %e", err, ErrNoStores)
+		}
+	})
+	t.Run("withAllNilMap", func(t *testing.T) {
+		nilDb := newTestDB(t)
+		nilDb.store = nil
+		err := nilDb.withAll(dclose)
+		if err == nil {
+			t.Errorf("[FAIL] got nil err from trying to work on nil map, wanted err")
 		}
 	})
 	t.Run("withAllBogusAction", func(t *testing.T) {
@@ -304,6 +311,16 @@ func Test_withAll(t *testing.T) {
 			} else {
 				t.Logf("[+] found %s in store %s", res, n)
 			}
+		}
+	})
+	t.Run("WithAllIncludingBadStore", func(t *testing.T) {
+		db.store["yeeterson"] = Store{}
+		err := db.withAll(dclose)
+		if err != nil {
+			t.Logf(err.Error())
+		}
+		if err == nil {
+			t.Errorf("[FAIL] got nil err, wanted any error")
 		}
 	})
 }
@@ -443,6 +460,13 @@ func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		}
 		if checkDir() != 4 {
 			t.Errorf("[FAIL] expected 4 datafile, got %d", checkDir())
+		}
+	})
+	t.Run("InitWithBogusOption", func(t *testing.T) {
+		db := newTestDB(t)
+		err := db.Init("bogus", "yeet")
+		if err == nil {
+			t.Errorf("[FAIL] Init should have failed with bogus option")
 		}
 	})
 }

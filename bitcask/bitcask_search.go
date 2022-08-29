@@ -38,9 +38,6 @@ func (s Store) ValueExists(value []byte) (key []byte, ok bool) {
 	var needle = kv.NewValue(value)
 	for _, key = range s.Keys() {
 		raw, _ = s.Get(key)
-		if len(key) == 0 {
-			continue
-		}
 		v := kv.NewValue(raw)
 		if v.Equal(needle) {
 			ok = true
@@ -65,10 +62,7 @@ func (s Store) PrefixScan(prefix string) (<-chan *kv.KeyValue, chan error) {
 			close(errChan)
 		}(err)
 		err = s.Scan([]byte(prefix), func(key []byte) error {
-			raw, err := s.Get(key)
-			if err != nil {
-				return err
-			}
+			raw, _ := s.Get(key)
 			if key != nil && raw != nil {
 				k := kv.NewKey(key)
 				resChan <- kv.NewKeyValue(k, kv.NewValue(raw))
