@@ -133,19 +133,19 @@ type Store struct {
 
 Store is an implmentation of a Filer and a Searcher using Bitcask.
 
-#### func (Store) AllKeys
-
-```go
-func (s Store) AllKeys() (keys [][]byte)
-```
-AllKeys will return all keys in the database as a slice of byte slices.
-
 #### func (Store) Backend
 
 ```go
 func (s Store) Backend() any
 ```
 Backend returns the underlying bitcask instance.
+
+#### func (Store) Keys
+
+```go
+func (s Store) Keys() (keys [][]byte)
+```
+Keys will return all keys in the database as a slice of byte slices.
 
 #### func (Store) PrefixScan
 
@@ -169,4 +169,5 @@ type casting will be necessary. (e.g: []byte or string)
 func (s Store) ValueExists(value []byte) (key []byte, ok bool)
 ```
 ValueExists will check for the existence of a Value anywhere within the
-keyspace, returning the Key and true if found, or nil and false if not found.
+keyspace; returning the first Key found, true if found || nil and false if not
+found.

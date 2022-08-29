@@ -1,7 +1,7 @@
 # database
 
-[![Coverage](https://codecov.io/gh/yunginnanet/database/branch/master/graph/badge.svg)](https://codecov.io/gh/yunginnanet/database)
-[![Build Status](https://github.com/yunginnanet/database/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/yunginnanet/database/actions/workflows/go.yml)
+[![Coverage](https://codecov.io/gh/tcp-direct/database/branch/master/graph/badge.svg)](https://codecov.io/gh/tcp-direct/database)
+[![Build Status](https://github.com/tcp-direct/database/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/tcp-direct/database/actions/workflows/go.yml)
 
 `import "git.tcp.direct/tcp.direct/database"`
 
@@ -27,6 +27,9 @@ type Filer interface {
 	Close() error
 	// Sync should take any volatile data and solidify it somehow if relevant. (ram to disk in most cases)
 	Sync() error
+
+	Keys() [][]byte
+	Len() int
 }
 ```
 
@@ -65,8 +68,6 @@ backing up.
 
 ```go
 type Searcher interface {
-	// AllKeys must retrieve all keys in the datastore with the given storeName.
-	AllKeys() [][]byte
 	// PrefixScan must retrieve all keys in the datastore and stream them to the given channel.
 	PrefixScan(prefix string) (<-chan *kv.KeyValue, chan error)
 	// Search must be able to search through the value contents of our database and stream the results to the given channel.
@@ -86,3 +87,5 @@ type Store interface {
 	Searcher
 }
 ```
+
+Store is an implementation of a Filer and a Searcher.
