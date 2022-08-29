@@ -169,12 +169,20 @@ func Test_ValueExists(t *testing.T) {
 	t.Run("ValueExists", func(t *testing.T) {
 		needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t, true)
 
-		for _, needle := range needles {
-			if k, exists := db.With(storename).ValueExists(needle); !exists {
-				t.Errorf("[FAIL] store should have contained a value %s somewhere, it did not.", string(needle))
-			} else {
-				t.Logf("[SUCCESS] successfully located value: %s, at key: %s", string(k), string(needle))
+		for _, ndl := range needles {
+			k, exists := db.With(storename).ValueExists(ndl)
+			if !exists {
+				t.Fatalf("[FAIL] store should have contained a value %s somewhere, it did not.", string(ndl))
 			}
+			if k == nil {
+				t.Fatalf("[FAIL] store should have contained a value %s somewhere, "+
+					"it said it did but key was nil", string(ndl))
+			}
+			v, _ := db.With(storename).Get(k)
+			if string(v) != string(ndl) {
+				t.Fatalf("[FAIL] retrieved value does not match search target %s != %s", string(v), string(ndl))
+			}
+			t.Logf("[SUCCESS] successfully located value: %s, at key: %s", string(k), string(v))
 		}
 	})
 

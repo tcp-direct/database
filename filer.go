@@ -25,4 +25,7 @@ type Filer interface {
 	Close() error
 	// Sync should take any volatile data and solidify it somehow if relevant. (ram to disk in most cases)
 	Sync() error
+
+	Keys() [][]byte
+	Len() int
 }

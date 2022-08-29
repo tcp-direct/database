@@ -16,7 +16,7 @@ func (s Store) Search(query string) (<-chan *kv.KeyValue, chan error) {
 			close(resChan)
 			close(errChan)
 		}()
-		for _, key := range s.AllKeys() {
+		for _, key := range s.Keys() {
 			raw, err := s.Get(key)
 			if err != nil {
 				errChan <- err
@@ -31,12 +31,16 @@ func (s Store) Search(query string) (<-chan *kv.KeyValue, chan error) {
 	return resChan, errChan
 }
 
-// ValueExists will check for the existence of a Value anywhere within the keyspace, returning the Key and true if found, or nil and false if not found.
+// ValueExists will check for the existence of a Value anywhere within the keyspace;
+// returning the first Key found, true if found || nil and false if not found.
 func (s Store) ValueExists(value []byte) (key []byte, ok bool) {
 	var raw []byte
 	var needle = kv.NewValue(value)
-	for _, k := range s.AllKeys() {
-		raw, _ = s.Get(k)
+	for _, key = range s.Keys() {
+		raw, _ = s.Get(key)
+		if len(key) == 0 {
+			continue
+		}
 		v := kv.NewValue(raw)
 		if v.Equal(needle) {
 			ok = true
@@ -75,10 +79,10 @@ func (s Store) PrefixScan(prefix string) (<-chan *kv.KeyValue, chan error) {
 	return resChan, errChan
 }
 
-// AllKeys will return all keys in the database as a slice of byte slices.
-func (s Store) AllKeys() (keys [][]byte) {
-	keychan := s.Keys()
-	for key := range keychan {
+// Keys will return all keys in the database as a slice of byte slices.
+func (s Store) Keys() (keys [][]byte) {
+	allkeys := s.Bitcask.Keys()
+	for key := range allkeys {
 		keys = append(keys, key)
 	}
 	return

@@ -6,13 +6,19 @@ import (
 	"git.tcp.direct/tcp.direct/database"
 )
 
-func needKeeper(keeper database.Keeper) {}
-func needFiler(filer database.Filer)    {}
-
-func Test_Keeper(t *testing.T) {
-	needKeeper(OpenDB(""))
-}
-
-func Test_Filer(t *testing.T) {
-	needFiler(OpenDB("").With(""))
+func Test_Interfaces(t *testing.T) {
+	v := OpenDB(t.TempDir())
+	var keeper interface{} = v
+	if _, ok := keeper.(database.Keeper); !ok {
+		t.Error("Keeper interface not implemented")
+	}
+	vs := v.WithNew("test")
+	var searcher interface{} = vs
+	if _, ok := searcher.(database.Searcher); !ok {
+		t.Error("Searcher interface not implemented")
+	}
+	var filer interface{} = vs
+	if _, ok := filer.(database.Filer); !ok {
+		t.Error("Filer interface not implemented")
+	}
 }
