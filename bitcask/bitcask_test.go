@@ -245,6 +245,67 @@ func Test_withAll(t *testing.T) {
 			t.Errorf("[FAIL] wanted error %e, got error %e", errUnknownAction, err)
 		}
 	})
+	t.Run("ListAll", func(t *testing.T) {
+		allStores := db.AllStores()
+		if len(allStores) == 0 {
+			t.Errorf("[FAIL] no stores found")
+		}
+		for n, s := range allStores {
+			if n == "" {
+				t.Errorf("[FAIL] store name is empty")
+			}
+			if s == nil {
+				t.Errorf("[FAIL] store is nil")
+			}
+			t.Logf("[+] found store named %s: %v", n, s)
+		}
+		if len(allStores) != len(db.store) {
+			t.Errorf("[FAIL] found %d stores, expected %d", len(allStores), len(db.store))
+		}
+	})
+	t.Run("ListAllAndInteract", func(t *testing.T) {
+		err := db.Init("asdf2")
+		if err != nil {
+			t.Errorf("[FAIL] unexpected error: %e", err)
+		}
+		err = db.With("asdf").Put([]byte("asdf"), []byte("asdf"))
+		if err != nil {
+			t.Errorf("[FAIL] unexpected error: %e", err)
+		}
+		err = db.With("asdf2").Put([]byte("asdf2"), []byte("asdf2"))
+		if err != nil {
+			t.Errorf("[FAIL] unexpected error: %e", err)
+		}
+		allStores := db.AllStores()
+		if len(allStores) == 0 {
+			t.Errorf("[FAIL] no stores found")
+		}
+		for n, s := range allStores {
+			if n == "" {
+				t.Errorf("[FAIL] store name is empty")
+			}
+			if s == nil {
+				t.Errorf("[FAIL] store is nil")
+			}
+			if len(db.store) != 2 {
+				t.Errorf("[SANITY FAIL] found %d stores, expected %d", len(allStores), len(db.store))
+			}
+			t.Logf("[+] found store named %s: %v", n, s)
+			if len(allStores) != len(db.store) {
+				t.Errorf("[FAIL] found %d stores, expected %d", len(allStores), len(db.store))
+			}
+			var res []byte
+			res, err = db.With(n).Get([]byte(n))
+			if err != nil {
+				t.Errorf("[FAIL] unexpected error: %e", err)
+			}
+			if !bytes.Equal(res, []byte(n)) {
+				t.Errorf("[FAIL] expected %s, got %s", n, res)
+			} else {
+				t.Logf("[+] found %s in store %s", res, n)
+			}
+		}
+	})
 }
 
 func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop

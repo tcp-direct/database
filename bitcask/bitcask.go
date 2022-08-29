@@ -29,13 +29,13 @@ type DB struct {
 	mu    *sync.RWMutex
 }
 
-// AllStores returns a list of all bitcask datastores.
-func (db *DB) AllStores() []database.Filer {
+// AllStores returns a map of the names of all bitcask datastores and the corresponding Filers.
+func (db *DB) AllStores() map[string]database.Filer {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	var stores = make([]database.Filer, len(db.store))
-	for _, s := range db.store {
-		stores = append(stores, s)
+	var stores = make(map[string]database.Filer)
+	for n, s := range db.store {
+		stores[n] = s
 	}
 	return stores
 }
