@@ -58,7 +58,7 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 			name:    "storeExists",
 			args:    args{"simple"},
 			wantErr: true,
-			specErr: errStoreExists,
+			specErr: ErrStoreExists,
 		},
 		{
 			name:    "newStore",
@@ -221,8 +221,8 @@ func Test_Close(t *testing.T) {
 
 	t.Run("CantCloseBogusStore", func(t *testing.T) {
 		err := db.Close(c.RandStr(55))
-		if !errors.Is(err, errBogusStore) {
-			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
+		if !errors.Is(err, ErrBogusStore) {
+			t.Errorf("[FAIL] got err %e, wanted err %e", err, ErrBogusStore)
 		}
 	})
 }
@@ -231,8 +231,8 @@ func Test_withAll(t *testing.T) {
 	var db = newTestDB(t)
 	t.Run("withAllNoStores", func(t *testing.T) {
 		err := db.withAll(121)
-		if !errors.Is(err, errNoStores) {
-			t.Errorf("[FAIL] got err %e, wanted err %e", err, errBogusStore)
+		if !errors.Is(err, ErrNoStores) {
+			t.Errorf("[FAIL] got err %e, wanted err %e", err, ErrBogusStore)
 		}
 	})
 	t.Run("withAllBogusAction", func(t *testing.T) {
@@ -241,8 +241,8 @@ func Test_withAll(t *testing.T) {
 			t.Errorf("[FAIL] unexpected error: %e", err)
 		}
 		wAllErr := db.withAll(121)
-		if !errors.Is(wAllErr, errUnknownAction) {
-			t.Errorf("[FAIL] wanted error %e, got error %e", errUnknownAction, err)
+		if !errors.Is(wAllErr, ErrUnknownAction) {
+			t.Errorf("[FAIL] wanted error %e, got error %e", ErrUnknownAction, err)
 		}
 	})
 	t.Run("ListAll", func(t *testing.T) {

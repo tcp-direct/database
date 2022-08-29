@@ -2,34 +2,31 @@ package bitcask
 
 import (
 	"errors"
-	"strings"
+
+	"github.com/hashicorp/go-multierror"
 )
 
+//goland:noinspection GoExportedElementShouldHaveComment
 var (
-	errUnknownAction = errors.New("unknown action")
-	errBogusStore    = errors.New("bogus store backend")
-	errStoreExists   = errors.New("store name already exists")
-	errNoStores      = errors.New("no stores initialized")
+	ErrUnknownAction = errors.New("unknown action")
+	ErrBogusStore    = errors.New("bogus store backend")
+	ErrStoreExists   = errors.New("store name already exists")
+	ErrNoStores      = errors.New("no stores initialized")
 )
 
 func namedErr(name string, err error) error {
 	if err == nil {
 		return nil
 	}
-	return errors.New(name + ": " + err.Error())
+	return multierror.Prefix(err, name)
 }
 
-func compoundErrors(errs []error) error {
-	var errstrs []string
-	var isnil = true
-	for _, err := range errs {
-		if err != nil {
-			isnil = false
-			errstrs = append(errstrs, err.Error())
+func compoundErrors(errs []error) (err error) {
+	for _, e := range errs {
+		if e == nil {
+			continue
 		}
+		err = multierror.Append(err, e)
 	}
-	if isnil {
-		return nil
-	}
-	return errors.New(strings.Join(errstrs, ","))
+	return
 }

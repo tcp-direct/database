@@ -93,7 +93,7 @@ func (db *DB) Init(storeName string, opts ...any) error {
 	}
 
 	if _, ok := db.store[storeName]; ok {
-		return errStoreExists
+		return ErrStoreExists
 	}
 	path := db.Path()
 	if !strings.HasSuffix(db.Path(), "/") {
@@ -141,7 +141,7 @@ func (db *DB) Close(storeName string) error {
 	defer db.mu.Unlock()
 	st, ok := db.store[storeName]
 	if !ok {
-		return errBogusStore
+		return ErrBogusStore
 	}
 	err := st.Close()
 	if err != nil {
@@ -174,12 +174,12 @@ const (
 func (db *DB) withAll(action withAllAction) error {
 	var errs = make([]error, len(db.store))
 	if len(db.store) < 1 {
-		return errNoStores
+		return ErrNoStores
 	}
 	for name, store := range db.store {
 		var err error
 		if store.Bitcask == nil {
-			errs = append(errs, namedErr(name, errBogusStore))
+			errs = append(errs, namedErr(name, ErrBogusStore))
 			continue
 		}
 		switch action {
@@ -188,7 +188,7 @@ func (db *DB) withAll(action withAllAction) error {
 		case dsync:
 			err = namedErr(name, store.Sync())
 		default:
-			return errUnknownAction
+			return ErrUnknownAction
 		}
 		if err == nil {
 			continue
