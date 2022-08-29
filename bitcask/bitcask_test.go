@@ -232,7 +232,7 @@ func Test_withAll(t *testing.T) {
 	t.Run("withAllNoStores", func(t *testing.T) {
 		err := db.withAll(121)
 		if !errors.Is(err, ErrNoStores) {
-			t.Errorf("[FAIL] got err %e, wanted err %e", err, ErrBogusStore)
+			t.Errorf("[FAIL] got err %e, wanted err %e", err, ErrNoStores)
 		}
 	})
 	t.Run("withAllBogusAction", func(t *testing.T) {
