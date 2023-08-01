@@ -10,9 +10,15 @@ type Keeper interface {
 	// With provides access to the given dataStore by providing a pointer to the related Filer.
 	With(name string) Store
 
+	// WithNew should initialize a new Filer at the given path.
+	WithNew(name string, options ...any) Filer
+
 	AllStores() map[string]Filer
 	// TODO: Backups
 
+	Close(name string) error
+
 	CloseAll() error
 	SyncAll() error
+	SyncAndCloseAll() error
 }

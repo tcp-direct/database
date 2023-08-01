@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	git.tcp.direct/Mirrors/bitcask-mirror v0.0.0-20220228092422-1ec4297c7e34
-	git.tcp.direct/kayos/common v0.8.2
+	git.tcp.direct/kayos/common v0.8.6
 	github.com/davecgh/go-spew v1.1.1
 	github.com/hashicorp/go-multierror v1.1.1
 )
@@ -17,6 +17,6 @@ require (
 	github.com/plar/go-adaptive-radix-tree v1.0.4 // indirect
 	github.com/rs/zerolog v1.26.1 // indirect
 	golang.org/x/exp v0.0.0-20200228211341-fcea875c7e85 // indirect
-	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	nullprogram.com/x/rng v1.1.0 // indirect
 )

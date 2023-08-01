@@ -2,6 +2,8 @@ package bitcask
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
 	"strings"
 	"sync"
 
@@ -119,9 +121,16 @@ func (db *DB) With(storeName string) database.Store {
 }
 
 // WithNew calls the given underlying bitcask instance, if it doesn't exist, it creates it.
-func (db *DB) WithNew(storeName string) database.Filer {
+func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	for _, opt := range opts {
+		if _, ok := opt.(bitcask.Option); !ok {
+			fmt.Println("invalid bitcask option type: ", opt)
+			continue
+		}
+		defaultBitcaskOptions = append(defaultBitcaskOptions, opt.(bitcask.Option))
+	}
 	d, ok := db.store[storeName]
 	if ok {
 		return d
@@ -132,6 +141,7 @@ func (db *DB) WithNew(storeName string) database.Filer {
 	if err == nil {
 		return db.store[storeName]
 	}
+	fmt.Println("error creating bitcask store: ", err)
 	return Store{Bitcask: nil}
 }
 
@@ -184,7 +194,11 @@ func (db *DB) withAll(action withAllAction) error {
 		}
 		switch action {
 		case dclose:
-			err = namedErr(name, store.Close())
+			closeErr := store.Close()
+			if errors.Is(closeErr, fs.ErrClosed) {
+				continue
+			}
+			err = namedErr(name, closeErr)
 		case dsync:
 			err = namedErr(name, store.Sync())
 		default:
