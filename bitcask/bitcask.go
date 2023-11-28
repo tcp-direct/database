@@ -138,11 +138,11 @@ func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
 	db.mu.RUnlock()
 	err := db.Init(storeName)
 	db.mu.RLock()
-	if err == nil {
-		return db.store[storeName]
+	if err != nil {
+		fmt.Println("error creating bitcask store: ", err)
+
 	}
-	fmt.Println("error creating bitcask store: ", err)
-	return Store{Bitcask: nil}
+	return db.store[storeName]
 }
 
 // Close is a simple shim for bitcask's Close function.
