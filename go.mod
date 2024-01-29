@@ -21,3 +21,7 @@ require (
 	golang.org/x/sys v0.13.0 // indirect
 	nullprogram.com/x/rng v1.1.0 // indirect
 )
+
+retract (
+	v0.3.0 // doesn't pass go vet
+)
