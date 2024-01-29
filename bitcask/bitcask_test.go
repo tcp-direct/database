@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -196,6 +197,29 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 			if !matched {
 				t.Errorf("[FAIL] failed to find store %s", n)
 			}
+		}
+	})
+	t.Run("RecoverBadMetaJSON", func(t *testing.T) {
+		var path string
+		path, db = newTestDB(t)
+		names := seedRandStores(db, t)
+		err := db.SyncAndCloseAll()
+		if err != nil {
+			t.Errorf("[FAIL] failed to SyncAndCloseAll: %e", err)
+		}
+		if err = os.WriteFile(filepath.Join(path, names[0], "meta.json"), []byte(""), 0644); err != nil {
+			t.Fatalf("[FAIL] failed to write bad meta.json: %e", err)
+		}
+		db = OpenDB(path)
+		_, err = db.(*DB).Discover()
+		if err != nil {
+			t.Errorf("[FAIL] failed to discover stores: %e", err)
+		}
+		if err = db.With(names[0]).Put([]byte("asdf"), []byte("asdf")); err != nil {
+			t.Errorf("[FAIL] failed to put value: %e", err)
+		}
+		if err = db.SyncAndCloseAll(); err != nil {
+			t.Errorf("[FAIL] failed to SyncAndCloseAll: %e", err)
 		}
 	})
 }

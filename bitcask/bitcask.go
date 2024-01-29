@@ -74,8 +74,40 @@ func (db *DB) Discover() ([]string, error) {
 		if _, ok := db.store[name]; ok {
 			continue
 		}
+		recoverOnce := &sync.Once{}
+	openUp:
 		c, e := bitcask.Open(filepath.Join(db.path, name), defaultBitcaskOptions...)
 		if e != nil {
+			retry := false
+			recoverOnce.Do(func() {
+				metaErr := new(bitcask.ErrBadMetadata)
+				if !errors.As(e, &metaErr) {
+					return
+				}
+				if !strings.Contains(metaErr.Error(), "unexpected end of JSON input") {
+					return
+				}
+				if c != nil {
+					_ = c.Close()
+				}
+				println("WARN: bitcask store", name, "has bad metadata, attempting to repair")
+				oldMeta := filepath.Join(db.path, name, "meta.json")
+				newMeta := filepath.Join(db.path, name, "meta.json.backup")
+				println("WARN: renaming", oldMeta, "to", newMeta)
+				// likely defunct lockfile is present too, remove it
+				if osErr := os.Rename(oldMeta, newMeta); osErr != nil {
+					println("WARN: failed to rename", oldMeta, "to", newMeta, ":", osErr)
+					return
+				}
+				if _, serr := os.Stat(filepath.Join(db.path, name, "lock")); serr == nil {
+					println("WARN: removing defunct lockfile")
+					_ = os.Remove(filepath.Join(db.path, name, "lock"))
+				}
+				retry = true
+			})
+			if retry {
+				goto openUp
+			}
 			errs = append(errs, e)
 			continue
 		}
@@ -84,6 +116,10 @@ func (db *DB) Discover() ([]string, error) {
 	}
 
 	for _, e := range errs {
+		if err == nil {
+			err = e
+			continue
+		}
 		err = fmt.Errorf("%w: %v", err, e)
 	}
 
