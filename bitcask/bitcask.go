@@ -84,7 +84,7 @@ func (db *DB) Discover() ([]string, error) {
 	}
 
 	for _, e := range errs {
-		err = fmt.Errorf("%w: %w", err, e)
+		err = fmt.Errorf("%w: %v", err, e)
 	}
 
 	return stores, err
