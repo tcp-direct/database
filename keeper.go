@@ -13,6 +13,8 @@ type Keeper interface {
 	// WithNew should initialize a new Filer at the given path.
 	WithNew(name string, options ...any) Filer
 
+	Discover() ([]string, error)
+
 	AllStores() map[string]Filer
 	// TODO: Backups
 

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -49,6 +51,43 @@ func OpenDB(path string) *DB {
 		path:  path,
 		mu:    &sync.RWMutex{},
 	}
+}
+
+// Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
+func (db *DB) Discover() ([]string, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	stores := make([]string, 0)
+	errs := make([]error, 0)
+	if db.store == nil {
+		db.store = make(map[string]Store)
+	}
+	entries, err := fs.ReadDir(os.DirFS(db.path), ".")
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if _, ok := db.store[name]; ok {
+			continue
+		}
+		c, e := bitcask.Open(filepath.Join(db.path, name), defaultBitcaskOptions...)
+		if e != nil {
+			errs = append(errs, e)
+			continue
+		}
+		db.store[name] = Store{Bitcask: c}
+		stores = append(stores, name)
+	}
+
+	for _, e := range errs {
+		err = fmt.Errorf("%w: %w", err, e)
+	}
+
+	return stores, err
 }
 
 // Path returns the base path where we store our bitcask "stores".

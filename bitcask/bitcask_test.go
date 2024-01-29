@@ -14,24 +14,26 @@ import (
 	"git.tcp.direct/tcp.direct/database"
 )
 
-func newTestDB(t *testing.T) database.Keeper {
+func newTestDB(t *testing.T) (string, database.Keeper) {
 	t.Helper()
 	tpath := t.TempDir()
 	tdb := OpenDB(tpath)
 	if tdb == nil {
 		t.Fatalf("failed to open testdb at %s, got nil", tpath)
 	}
-	return tdb
+	return tpath, tdb
 }
 
 func seedRandKV(db database.Keeper, store string) error {
 	return db.With(store).Put([]byte(c.RandStr(55)), []byte(c.RandStr(55)))
 }
 
-func seedRandStores(db database.Keeper, t *testing.T) {
+func seedRandStores(db database.Keeper, t *testing.T) []string {
 	t.Helper()
+	names := make([]string, 0)
 	for n := 0; n != 5; n++ {
 		randstore := c.RandStr(5)
+		names = append(names, randstore)
 		err := db.Init(randstore)
 		if err != nil {
 			t.Errorf("failed to initialize store for test SyncAndCloseAll: %e", err)
@@ -42,10 +44,11 @@ func seedRandStores(db database.Keeper, t *testing.T) {
 		}
 	}
 	t.Logf("seeded random stores with random values for test %s", t.Name())
+	return names
 }
 
 func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
-	var db = newTestDB(t)
+	var _, db = newTestDB(t)
 	type args struct{ storeName string }
 	type test struct {
 		name    string
@@ -170,18 +173,36 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		db = nil
 	})
 	t.Run("SyncAndCloseAll", func(t *testing.T) {
-		db = newTestDB(t)
-		seedRandStores(db, t)
+		var path string
+		path, db = newTestDB(t)
+		names := seedRandStores(db, t)
 		err := db.SyncAndCloseAll()
 		if err != nil {
 			t.Errorf("[FAIL] failed to SyncAndCloseAll: %e", err)
+		}
+		db = OpenDB(path)
+		found, err := db.(*DB).Discover()
+		if err != nil {
+			t.Errorf("[FAIL] failed to discover stores: %e", err)
+		}
+		for _, n := range names {
+			matched := false
+			for _, f := range found {
+				if f == n {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				t.Errorf("[FAIL] failed to find store %s", n)
+			}
 		}
 	})
 }
 
 func Test_Sync(t *testing.T) {
 	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err...
-	var db = newTestDB(t)
+	var _, db = newTestDB(t)
 	seedRandStores(db, t)
 	t.Run("Sync", func(t *testing.T) {
 		for d := range db.(*DB).store {
@@ -196,7 +217,7 @@ func Test_Sync(t *testing.T) {
 }
 
 func Test_Close(t *testing.T) {
-	var db = newTestDB(t)
+	var _, db = newTestDB(t)
 	defer func() {
 		db = nil
 	}()
@@ -231,7 +252,7 @@ func Test_Close(t *testing.T) {
 }
 
 func Test_withAll(t *testing.T) {
-	var db = newTestDB(t)
+	var _, db = newTestDB(t)
 	asdf1 := c.RandStr(10)
 	asdf2 := c.RandStr(10)
 
@@ -247,7 +268,7 @@ func Test_withAll(t *testing.T) {
 		}
 	})
 	t.Run("withAllNilMap", func(t *testing.T) {
-		nilDb := newTestDB(t)
+		_, nilDb := newTestDB(t)
 		nilDb.(*DB).store = nil
 		err := nilDb.(*DB).withAll(dclose)
 		if err == nil {
@@ -473,7 +494,7 @@ func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		}
 	})
 	t.Run("InitWithBogusOption", func(t *testing.T) {
-		db := newTestDB(t)
+		_, db := newTestDB(t)
 		err := db.Init("bogus", "yeet")
 		if err == nil {
 			t.Errorf("[FAIL] Init should have failed with bogus option")
