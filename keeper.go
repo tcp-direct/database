@@ -1,7 +1,11 @@
 package database
 
+import "git.tcp.direct/tcp.direct/database/models"
+
 // Keeper will be in charge of the more meta operations involving Filers.
 // This includes operations like initialization, syncing to disk if applicable, and backing up.
+//   - When opening a folder of Filers, it should be able to discover and initialize all of them.
+//   - Additionally, it should be able to confirm the type of the underlying key/value store.
 type Keeper interface {
 	// Path should return the base path where all stores should be stored under. (likely as subdirectories)
 	Path() string
@@ -16,7 +20,10 @@ type Keeper interface {
 	Discover() ([]string, error)
 
 	AllStores() map[string]Filer
+
 	// TODO: Backups
+
+	Meta() models.Metadata
 
 	Close(name string) error
 
@@ -24,3 +31,5 @@ type Keeper interface {
 	SyncAll() error
 	SyncAndCloseAll() error
 }
+
+type KeeperCreator func(path string) (Keeper, error)

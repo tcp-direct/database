@@ -12,6 +12,8 @@ import (
 	"git.tcp.direct/Mirrors/bitcask-mirror"
 
 	"git.tcp.direct/tcp.direct/database"
+	"git.tcp.direct/tcp.direct/database/metadata"
+	"git.tcp.direct/tcp.direct/database/models"
 )
 
 // Store is an implmentation of a Filer and a Searcher using Bitcask.
@@ -28,13 +30,22 @@ func (s Store) Backend() any {
 
 // DB is a mapper of a Filer and Searcher implementation using Bitcask.
 type DB struct {
-	store map[string]Store
-	path  string
-	mu    *sync.RWMutex
+	store       map[string]Store
+	path        string
+	mu          *sync.RWMutex
+	meta        *metadata.Metadata
+	initialized bool
+}
+
+func (db *DB) Meta() models.Metadata {
+	return db.meta
 }
 
 // AllStores returns a map of the names of all bitcask datastores and the corresponding Filers.
 func (db *DB) AllStores() map[string]database.Filer {
+	if err := db.init(); err != nil {
+		panic(err)
+	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var stores = make(map[string]database.Filer)
@@ -44,17 +55,66 @@ func (db *DB) AllStores() map[string]database.Filer {
 	return stores
 }
 
+func (db *DB) init() error {
+	var err error
+	db.mu.RLock()
+	if db.initialized {
+		db.mu.RUnlock()
+		return nil
+	}
+	db.mu.RUnlock()
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if _, err = os.Stat(db.path); os.IsNotExist(err) {
+		err = os.MkdirAll(db.path, 0700)
+		if err != nil {
+			return fmt.Errorf("error creating bitcask directory: %w", err)
+		}
+	}
+	stat, err := os.Stat(filepath.Join(db.path, "meta.json"))
+	if err == nil && stat.IsDir() {
+		return errors.New("meta.json is a directory")
+
+	}
+	if err == nil && !stat.IsDir() {
+		if db.meta, err = metadata.OpenMetaFile(filepath.Join(db.path, "meta.json")); err != nil {
+			return fmt.Errorf("error opening meta file: %w", err)
+		}
+		if db.meta.Type() != db.Type() {
+			return fmt.Errorf("meta.json is not a bitcask meta file")
+		}
+		db.initialized = true
+		return nil
+	}
+
+	if errors.Is(err, os.ErrNotExist) {
+		db.meta, err = metadata.NewMetaFile(db.Type(), filepath.Join(db.path, "meta.json"))
+		if err != nil {
+			return fmt.Errorf("error creating meta file: %w", err)
+		}
+		db.initialized = true
+		return nil
+	}
+
+	return err
+}
+
 // OpenDB will either open an existing set of bitcask datastores at the given directory, or it will create a new one.
 func OpenDB(path string) *DB {
 	return &DB{
-		store: make(map[string]Store),
-		path:  path,
-		mu:    &sync.RWMutex{},
+		store:       make(map[string]Store),
+		path:        path,
+		mu:          &sync.RWMutex{},
+		meta:        nil,
+		initialized: false,
 	}
 }
 
 // Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
 func (db *DB) Discover() ([]string, error) {
+	if err := db.init(); err != nil {
+		return nil, err
+	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	stores := make([]string, 0)
@@ -62,6 +122,8 @@ func (db *DB) Discover() ([]string, error) {
 	if db.store == nil {
 		db.store = make(map[string]Store)
 	}
+	os.Stat(filepath.Join(db.path, "meta.json"))
+
 	entries, err := fs.ReadDir(os.DirFS(db.path), ".")
 	if err != nil {
 		return nil, err
@@ -155,6 +217,9 @@ func WithMaxValueSize(size uint64) bitcask.Option {
 
 // Init opens a bitcask store at the given path to be referenced by storeName.
 func (db *DB) Init(storeName string, opts ...any) error {
+	if err := db.init(); err != nil {
+		return err
+	}
 	var bitcaskopts []bitcask.Option
 	for _, opt := range opts {
 		if _, ok := opt.(bitcask.Option); !ok {
@@ -186,6 +251,9 @@ func (db *DB) Init(storeName string, opts ...any) error {
 
 // With calls the given underlying bitcask instance.
 func (db *DB) With(storeName string) database.Store {
+	if err := db.init(); err != nil {
+		panic(err)
+	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	d, ok := db.store[storeName]
@@ -197,6 +265,9 @@ func (db *DB) With(storeName string) database.Store {
 
 // WithNew calls the given underlying bitcask instance, if it doesn't exist, it creates it.
 func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
+	if err := db.init(); err != nil {
+		panic(err)
+	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	for _, opt := range opts {
@@ -240,6 +311,9 @@ func (db *DB) Close(storeName string) error {
 func (db *DB) Sync(storeName string) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	if _, ok := db.store[storeName]; !ok {
+		return ErrBogusStore
+	}
 	return db.store[storeName].Sync()
 }
 
@@ -289,6 +363,9 @@ func (db *DB) withAll(action withAllAction) error {
 
 // SyncAndCloseAll implements the method from Keeper to sync and close all bitcask stores.
 func (db *DB) SyncAndCloseAll() error {
+	if db == nil || db.store == nil || len(db.store) < 1 {
+		return ErrNoStores
+	}
 	var errs = make([]error, len(db.store))
 	errSync := namedErr("sync", db.SyncAll())
 	if errSync != nil {
@@ -309,4 +386,8 @@ func (db *DB) CloseAll() error {
 // SyncAll syncs all bitcask datastores.
 func (db *DB) SyncAll() error {
 	return db.withAll(dsync)
+}
+
+func (db *DB) Type() string {
+	return "bitcask"
 }

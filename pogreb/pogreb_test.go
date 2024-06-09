@@ -119,7 +119,7 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 			t.Errorf("[FAIL] %e", err)
 		}
 		if !bytes.Equal(res, []byte("bong")) {
-			t.Errorf("[FAIL] wanted %v, got %v", string([]byte("bong")), string(res))
+			t.Errorf("[FAIL] wanted %v, got %v", string("bong"), string(res))
 		}
 	})
 	t.Run("withNewStoreDoesntExist", func(t *testing.T) {
@@ -181,7 +181,7 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 			t.Errorf("[FAIL] failed to SyncAndCloseAll: %e", err)
 		}
 		db = OpenDB(tdbp)
-		found, err := db.(*DB).Discover()
+		found, err := db.Discover()
 		if err != nil {
 			t.Errorf("[FAIL] failed to discover stores: %e", err)
 		}

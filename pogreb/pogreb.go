@@ -11,6 +11,8 @@ import (
 	"github.com/akrylysov/pogreb"
 
 	"git.tcp.direct/tcp.direct/database"
+	"git.tcp.direct/tcp.direct/database/metadata"
+	"git.tcp.direct/tcp.direct/database/models"
 )
 
 type Option func(*WrappedOptions)
@@ -74,6 +76,13 @@ type DB struct {
 	store map[string]*Store
 	path  string
 	mu    *sync.RWMutex
+	meta  *metadata.Metadata
+
+	initialized bool
+}
+
+func (db *DB) Meta() models.Metadata {
+	return db.meta
 }
 
 // AllStores returns a map of the names of all pogreb datastores and the corresponding Filers.
@@ -95,14 +104,54 @@ func OpenDB(path string) *DB {
 		store: make(map[string]*Store),
 		path:  path,
 		mu:    &sync.RWMutex{},
-	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err = os.MkdirAll(path, 0700)
-		if err != nil {
-			_, _ = os.Stderr.WriteString("error creating pogreb directory: " + err.Error())
-		}
+		meta:  nil,
+
+		initialized: false,
 	}
 	return db
+}
+
+func (db *DB) init() error {
+	var err error
+	db.mu.RLock()
+	if db.initialized {
+		db.mu.RUnlock()
+		return nil
+	}
+	db.mu.RUnlock()
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if _, err = os.Stat(db.path); os.IsNotExist(err) {
+		err = os.MkdirAll(db.path, 0700)
+		if err != nil {
+			return fmt.Errorf("error creating bitcask directory: %w", err)
+		}
+	}
+	stat, err := os.Stat(filepath.Join(db.path, "meta.json"))
+	if err == nil && stat.IsDir() {
+		return errors.New("meta.json is a directory")
+	}
+	if err == nil && !stat.IsDir() {
+		if db.meta, err = metadata.OpenMetaFile(filepath.Join(db.path, "meta.json")); err != nil {
+			return fmt.Errorf("error opening meta file: %w", err)
+		}
+		if db.meta.Type() != db.Type() {
+			return fmt.Errorf("meta.json is not a pogreb meta file")
+		}
+		db.initialized = true
+		return nil
+	}
+
+	if errors.Is(err, os.ErrNotExist) {
+		db.meta, err = metadata.NewMetaFile(db.Type(), filepath.Join(db.path, "meta.json"))
+		if err != nil {
+			return fmt.Errorf("error creating meta file: %w", err)
+		}
+		db.initialized = true
+		return nil
+	}
+
+	return err
 }
 
 // Path returns the base path where we store our pogreb "stores".
@@ -169,6 +218,9 @@ func (db *DB) initStore(storeName string, pogrebOpts *WrappedOptions) error {
 
 // Init opens a pogreb store at the given path to be referenced by storeName.
 func (db *DB) Init(storeName string, opts ...any) error {
+	if err := db.init(); err != nil {
+		return err
+	}
 	pogrebopts := defaultPogrebOptions
 	if len(opts) > 0 {
 		pogrebopts = normalizeOptions(opts...)
@@ -185,6 +237,9 @@ func (db *DB) Init(storeName string, opts ...any) error {
 
 // With calls the given underlying pogreb instance.
 func (db *DB) With(storeName string) database.Store {
+	if err := db.init(); err != nil {
+		panic(err)
+	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	d, ok := db.store[storeName]
@@ -196,6 +251,9 @@ func (db *DB) With(storeName string) database.Store {
 
 // WithNew calls the given underlying pogreb instance, if it doesn't exist, it creates it.
 func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
+	if err := db.init(); err != nil {
+		panic(err)
+	}
 	pogrebopts := defaultPogrebOptions
 	if len(opts) > 0 {
 		if pogrebopts = normalizeOptions(opts...); pogrebopts == nil {
@@ -243,6 +301,9 @@ func (db *DB) Close(storeName string) error {
 func (db *DB) Sync(storeName string) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	if _, ok := db.store[storeName]; !ok {
+		return ErrBogusStore
+	}
 	return db.store[storeName].Backend().(*pogreb.DB).Sync()
 }
 
@@ -292,6 +353,9 @@ func (db *DB) withAll(action withAllAction) error {
 
 // SyncAndCloseAll implements the method from Keeper to sync and close all pogreb stores.
 func (db *DB) SyncAndCloseAll() error {
+	if db == nil || db.store == nil || len(db.store) < 1 {
+		return ErrNoStores
+	}
 	var errs = make([]error, len(db.store))
 	errSync := namedErr("sync", db.SyncAll())
 	if errSync != nil {
@@ -316,6 +380,9 @@ func (db *DB) SyncAll() error {
 
 // Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
 func (db *DB) Discover() ([]string, error) {
+	if err := db.init(); err != nil {
+		return nil, err
+	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	stores := make([]string, 0)
@@ -352,4 +419,8 @@ func (db *DB) Discover() ([]string, error) {
 	}
 
 	return stores, err
+}
+
+func (db *DB) Type() string {
+	return "pogreb"
 }
