@@ -71,7 +71,7 @@ func (pstore *Store) Backend() any {
 
 // DB is a mapper of a Filer and Searcher implementation using pogreb.
 type DB struct {
-	store map[string]database.Store
+	store map[string]*Store
 	path  string
 	mu    *sync.RWMutex
 }
@@ -92,7 +92,7 @@ func (db *DB) AllStores() map[string]database.Filer {
 // OpenDB will either open an existing set of pogreb datastores at the given directory, or it will create a new one.
 func OpenDB(path string) *DB {
 	db := &DB{
-		store: make(map[string]database.Store),
+		store: make(map[string]*Store),
 		path:  path,
 		mu:    &sync.RWMutex{},
 	}
@@ -312,4 +312,44 @@ func (db *DB) CloseAll() error {
 // SyncAll syncs all pogreb datastores.
 func (db *DB) SyncAll() error {
 	return db.withAll(dsync)
+}
+
+// Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
+func (db *DB) Discover() ([]string, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	stores := make([]string, 0)
+	errs := make([]error, 0)
+	if db.store == nil {
+		db.store = make(map[string]*Store)
+	}
+	entries, err := fs.ReadDir(os.DirFS(db.path), ".")
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if _, ok := db.store[name]; ok {
+			continue
+		}
+		if err = db.initStore(name, defaultPogrebOptions); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		stores = append(stores, name)
+		db.store[name] = &Store{DB: db.store[name].DB}
+	}
+
+	for _, e := range errs {
+		if err == nil {
+			err = e
+			continue
+		}
+		err = fmt.Errorf("%w: %v", err, e)
+	}
+
+	return stores, err
 }
