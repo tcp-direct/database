@@ -150,6 +150,23 @@ func normalizeOptions(opts ...any) *WrappedOptions {
 	return pogrebopts
 }
 
+func (db *DB) initStore(storeName string, pogrebOpts *WrappedOptions) error {
+	if _, ok := db.store[storeName]; ok {
+		return ErrStoreExists
+	}
+	path := db.Path()
+	if _, err := os.Stat(filepath.Join(path, storeName, "lock")); !os.IsNotExist(err) && !pogrebOpts.AllowRecovery {
+		return fmt.Errorf("%w: and seems to be running... "+
+			"Please close it first, or use InitWithRecovery", ErrStoreExists)
+	}
+	c, e := pogreb.Open(filepath.Join(path, storeName), pogrebOpts.Options)
+	if e != nil {
+		return e
+	}
+	db.store[storeName] = &Store{DB: c}
+	return nil
+}
+
 // Init opens a pogreb store at the given path to be referenced by storeName.
 func (db *DB) Init(storeName string, opts ...any) error {
 	pogrebopts := defaultPogrebOptions
@@ -160,21 +177,10 @@ func (db *DB) Init(storeName string, opts ...any) error {
 		}
 	}
 	db.mu.Lock()
-	defer db.mu.Unlock()
-	if _, ok := db.store[storeName]; ok {
-		return ErrStoreExists
-	}
-	path := db.Path()
-	if _, err := os.Stat(filepath.Join(path, storeName, "lock")); !os.IsNotExist(err) && !pogrebopts.AllowRecovery {
-		return fmt.Errorf("%w: and seems to be running... "+
-			"Please close it first, or use InitWithRecovery", ErrStoreExists)
-	}
-	c, e := pogreb.Open(filepath.Join(path, storeName), pogrebopts.Options)
-	if e != nil {
-		return e
-	}
-	db.store[storeName] = &Store{DB: c}
-	return nil
+	err := db.initStore(storeName, pogrebopts)
+	db.mu.Unlock()
+
+	return err
 }
 
 // With calls the given underlying pogreb instance.
@@ -197,16 +203,19 @@ func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
 		}
 	}
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.mu.Lock()
+	defer db.mu.Unlock()
 
 	d, ok := db.store[storeName]
-	if ok {
+	if ok && d == nil {
+		delete(db.store, storeName)
+		ok = false
+	}
+
+	if ok && d != nil {
 		return d
 	}
-	db.mu.RUnlock()
-	err := db.Init(storeName, pogrebopts)
-	db.mu.RLock()
+	err := db.initStore(storeName, pogrebopts)
 	if err == nil {
 		return db.store[storeName]
 	}
