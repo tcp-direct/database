@@ -7,6 +7,18 @@
 
 ## Documentation
 
+#### func  AllKeepers
+
+```go
+func AllKeepers() map[string]KeeperCreator
+```
+
+#### func  RegisterKeeper
+
+```go
+func RegisterKeeper(name string, keeper KeeperCreator)
+```
+
 #### type Filer
 
 ```go
@@ -53,16 +65,42 @@ type Keeper interface {
 	// With provides access to the given dataStore by providing a pointer to the related Filer.
 	With(name string) Store
 
+	// WithNew should initialize a new Filer at the given path.
+	WithNew(name string, options ...any) Filer
+
+	Discover() ([]string, error)
+
 	AllStores() map[string]Filer
+
+	Meta() models.Metadata
+
+	Close(name string) error
 
 	CloseAll() error
 	SyncAll() error
+	SyncAndCloseAll() error
 }
 ```
 
 Keeper will be in charge of the more meta operations involving Filers. This
 includes operations like initialization, syncing to disk if applicable, and
 backing up.
+
+    - When opening a folder of Filers, it should be able to discover and initialize all of them.
+    - Additionally, it should be able to confirm the type of the underlying key/value store.
+
+#### type KeeperCreator
+
+```go
+type KeeperCreator func(path string) (Keeper, error)
+```
+
+
+#### func  GetKeeper
+
+```go
+func GetKeeper(name string) KeeperCreator
+```
 
 #### type Searcher
 
@@ -89,3 +127,5 @@ type Store interface {
 ```
 
 Store is an implementation of a Filer and a Searcher.
+
+---
