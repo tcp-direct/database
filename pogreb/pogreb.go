@@ -82,7 +82,10 @@ type DB struct {
 }
 
 func (db *DB) Meta() models.Metadata {
-	return db.meta
+	db.mu.RLock()
+	m := db.meta
+	db.mu.RUnlock()
+	return m
 }
 
 // AllStores returns a map of the names of all pogreb datastores and the corresponding Filers.
