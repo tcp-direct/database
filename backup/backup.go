@@ -4,15 +4,20 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
+
+	"git.tcp.direct/tcp.direct/database/models"
 )
 
 type Format string
+
+var _ models.Backup = &BackupMetadata{}
 
 const (
 	FormatTarGz Format = "tar.gz"
@@ -32,6 +37,18 @@ type BackupMetadata struct {
 	Stores     []string  `json:"stores,omitempty"`
 	Checksum   Checksum  `json:"checksum,omitempty"`
 	Size       int64     `json:"size,omitempty"`
+}
+
+func (bm BackupMetadata) MarshalJSON() ([]byte, error) {
+	return json.Marshal(bm)
+}
+
+func (bm BackupMetadata) Type() string {
+	return bm.FileFormat
+}
+
+func (bm BackupMetadata) Metadata() models.Metadata {
+	return bm
 }
 
 func (bm BackupMetadata) Timestamp() time.Time {

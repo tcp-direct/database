@@ -61,10 +61,13 @@ func TestNewTarGzBackup(t *testing.T) {
 		t.Error("expected checksum to match the file")
 	}
 
-	os.WriteFile("./test.tar.gz", tmp, 0644)
+	if err = VerifyBackup(backup.Metadata(), backup.Metadata().Path()); err != nil {
+		t.Fatalf("error verifying backup: %v", err)
+	}
 
 	t.Logf("backup metadata: %v", backup.Metadata())
 	t.Log(spew.Sdump(backup))
+
 }
 
 func TestTarGzBackup_Metadata(t *testing.T) {
