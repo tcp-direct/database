@@ -1,7 +1,7 @@
 # database
 
-[![Coverage](https://codecov.io/gh/tcp-direct/database/branch/master/graph/badge.svg)](https://codecov.io/gh/tcp-direct/database)
-[![Build Status](https://github.com/tcp-direct/database/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/tcp-direct/database/actions/workflows/go.yml)
+[![Coverage](https://codecov.io/gh/tcp-direct/database/branch/main/graph/badge.svg)](https://codecov.io/gh/tcp-direct/database/tree/main)
+[![Build Status](https://github.com/tcp-direct/database/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/tcp-direct/database/actions/workflows/go.yml)
 
 `import "git.tcp.direct/tcp.direct/database"`
 
