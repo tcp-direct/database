@@ -36,7 +36,7 @@ func TestImplementationsBasic(t *testing.T) {
 	testKey := []byte("yeeterson")
 	testValue := []byte("mcgeeterson")
 	for _, name := range registry.AllKeepers() {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name+"_basic", func(t *testing.T) {
 			tpath := filepath.Join(t.TempDir(), name)
 			keeper := registry.GetKeeper(name)
 			if keeper == nil {
@@ -160,13 +160,16 @@ func insertGarbo(t *testing.T, db database.Keeper) map[string][]kv.KeyValue {
 			}
 			inserted[newName] = append(inserted[newName], kv.NewKeyValueFromBytes(key, value))
 		}
+		if db.With(newName).Len() != 100 {
+			t.Fatalf("expected 100 keys in store, got %d", db.With(newName).Len())
+		}
 	}
 	return inserted
 }
 
 func TestImplementationsBackup(t *testing.T) {
 	for _, name := range registry.AllKeepers() {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name+"_backup", func(t *testing.T) {
 			// t.Parallel()
 			tpath := filepath.Join(t.TempDir(), name)
 			keeper := registry.GetKeeper(name)
@@ -212,9 +215,9 @@ func TestImplementationsBackup(t *testing.T) {
 			t.Logf("backup restored: %v", bu.Path())
 			t.Run("verify_restored_data", func(t *testing.T) {
 				for storeName, kvs := range garbo {
-					t.Run("store: "+storeName, func(t *testing.T) {
+					t.Run("verify_"+storeName, func(t *testing.T) {
 						for _, kvTuple := range kvs {
-							t.Logf("checking key: %s", kvTuple.Key.String())
+							// t.Logf("checking key: %s", kvTuple.Key.String())
 							var ret []byte
 							var getErr error
 							if ret, getErr = instance.With(storeName).Get(kvTuple.Key.Bytes()); getErr != nil {
@@ -227,6 +230,9 @@ func TestImplementationsBackup(t *testing.T) {
 					})
 				}
 			})
+			if err = instance.SyncAndCloseAll(); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
 		})
 	}
 }
