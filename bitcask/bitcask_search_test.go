@@ -145,13 +145,13 @@ func Test_Search(t *testing.T) {
 	t.Run("NoResultsSearch", func(t *testing.T) {
 		bogus := c.RandStr(55)
 		t.Logf("executing search for %s", bogus)
-		var results []*kv.KeyValue
+		var results []kv.KeyValue
 		resChan, errChan := db.With(storename).Search(bogus)
 		select {
 		case err := <-errChan:
 			t.Errorf("failed to search: %s", err.Error())
 		case r := <-resChan:
-			if r != nil {
+			if r.Key.String() != "" && r.Value.String() != "" {
 				spew.Dump(r)
 				results = append(results, r)
 			}
@@ -212,7 +212,7 @@ func Test_PrefixScan(t *testing.T) {
 	var storename = "test_prefix_scan"
 	var db = setupTest(storename, t)
 	addJunk(db, storename, c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), c.RNG(5), t, false)
-	var needles = []*kv.KeyValue{
+	var needles = []kv.KeyValue{
 		kv.NewKeyValue(kv.NewKey([]byte("user:Frickhole")), kv.NewValue([]byte(c.RandStr(55)))),
 		kv.NewKeyValue(kv.NewKey([]byte("user:Johnson")), kv.NewValue([]byte(c.RandStr(55)))),
 		kv.NewKeyValue(kv.NewKey([]byte("user:Jackson")), kv.NewValue([]byte(c.RandStr(55)))),
@@ -228,7 +228,7 @@ func Test_PrefixScan(t *testing.T) {
 		}
 	}
 	resChan, errChan := db.With(storename).PrefixScan("user:")
-	var results []*kv.KeyValue
+	var results []kv.KeyValue
 	for keyValue := range resChan {
 		results = append(results, keyValue)
 		select {

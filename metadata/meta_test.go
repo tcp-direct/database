@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"bytes"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -139,20 +140,28 @@ func TestMetadata_Close(t *testing.T) {
 	}
 }
 
-type ClosableBuffer struct {
+type ClosableSeekableBuffer struct {
 	*bytes.Buffer
 	closed bool
 }
 
-func (cb *ClosableBuffer) Close() error {
+func (cb *ClosableSeekableBuffer) Close() error {
 	cb.closed = true
 	return nil
+}
+
+func (cb *ClosableSeekableBuffer) Seek(offset int64, whence int) (int64, error) {
+	if offset != 0 || whence != 0 {
+		panic("unexpected seek")
+	}
+	cb.Buffer.Reset()
+	return 0, nil
 }
 
 func TestMetadata_WithWriter(t *testing.T) {
 	meta := NewMeta("testType")
 	buf := new(bytes.Buffer)
-	cbuf := &ClosableBuffer{Buffer: buf}
+	cbuf := &ClosableSeekableBuffer{Buffer: buf}
 
 	meta.WithWriter(cbuf)
 
@@ -191,6 +200,22 @@ func (tb *testBackup) Metadata() models.Metadata {
 
 func (tb *testBackup) Path() string {
 	return "test"
+}
+
+func (tb *testBackup) Timestamp() time.Time {
+	return time.Now()
+}
+
+func (tb *testBackup) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Format    string    `json:"format"`
+		Timestamp time.Time `json:"timestamp"`
+		Path      string    `json:"path"`
+	}{
+		Format:    tb.Format(),
+		Timestamp: tb.Timestamp(),
+		Path:      tb.Path(),
+	})
 }
 
 func TestMetadata_WithBackups(t *testing.T) {

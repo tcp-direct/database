@@ -139,6 +139,10 @@ func CombineMetrics(metrics ...*pogreb.Metrics) *CombinedMetrics {
 	return c
 }
 
+func (cm *CombinedMetrics) Equal(other *CombinedMetrics) bool {
+	return cm.Puts == other.Puts && cm.Dels == other.Dels && cm.Gets == other.Gets && cm.HashCollisions == other.HashCollisions
+}
+
 // Meta returns the metadata for the pogreb database.
 func (db *DB) Meta() models.Metadata {
 	db.mu.RLock()
@@ -151,7 +155,11 @@ func (db *DB) Meta() models.Metadata {
 		if db.meta.Extra == nil {
 			db.meta.Extra = make(map[string]interface{})
 		}
-		db.meta.Extra["metrics"] = CombineMetrics(mets...)
+		newMet := CombineMetrics(mets...)
+		if db.meta.Extra["metrics"] == nil || !newMet.Equal(db.meta.Extra["metrics"].(*CombinedMetrics)) {
+			db.meta.Extra["metrics"] = newMet
+			_ = db.meta.Sync()
+		}
 	}
 	m := db.meta
 	db.mu.RUnlock()
@@ -193,15 +201,8 @@ func OpenDB(path string) *DB {
 	}
 	return db
 }
-
-func (db *DB) init() error {
-	var err error
-	if db.initialized.Load() {
-		return nil
-	}
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	if _, err = os.Stat(db.path); os.IsNotExist(err) {
+func (db *DB) _init() error {
+	if _, err := os.Stat(db.path); os.IsNotExist(err) {
 		err = os.MkdirAll(db.path, 0700)
 		if err != nil {
 			return fmt.Errorf("error creating bitcask directory: %w", err)
@@ -210,13 +211,14 @@ func (db *DB) init() error {
 	stat, err := os.Stat(filepath.Join(db.path, "meta.json"))
 	if err == nil && stat.IsDir() {
 		return errors.New("meta.json is a directory")
+
 	}
 	if err == nil && !stat.IsDir() {
 		if db.meta, err = metadata.OpenMetaFile(filepath.Join(db.path, "meta.json")); err != nil {
 			return fmt.Errorf("error opening meta file: %w", err)
 		}
 		if db.meta.Type() != db.Type() {
-			return fmt.Errorf("meta.json is not a pogreb meta file")
+			return fmt.Errorf("meta.json is not a bitcask meta file")
 		}
 		db.initialized.Store(true)
 		return nil
@@ -232,6 +234,15 @@ func (db *DB) init() error {
 	}
 
 	return err
+}
+
+func (db *DB) init() error {
+	if db.initialized.Load() {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db._init()
 }
 
 // Destroy will remove a pogreb store and all data associated with it.
@@ -445,15 +456,12 @@ func (db *DB) withAll(action withAllAction) error {
 		}
 		switch action {
 		case dclose:
-			db.mu.Lock()
 			closeErr := store.Close()
 			if errors.Is(closeErr, fs.ErrClosed) {
-				db.mu.Unlock()
 				continue
 			}
 			err = namedErr(name, closeErr)
 			delete(db.store, name)
-			db.mu.Unlock()
 		case dsync:
 			err = namedErr(name, store.Sync())
 		default:
@@ -467,8 +475,7 @@ func (db *DB) withAll(action withAllAction) error {
 	return compoundErrors(errs)
 }
 
-// SyncAndCloseAll implements the method from Keeper to sync and close all pogreb stores.
-func (db *DB) SyncAndCloseAll() error {
+func (db *DB) syncAndCloseAll() error {
 	if db == nil || db.store == nil || len(db.store) < 1 {
 		return ErrNoStores
 	}
@@ -477,30 +484,43 @@ func (db *DB) SyncAndCloseAll() error {
 	if errSync != nil {
 		errs = append(errs, errSync)
 	}
-	errClose := namedErr("close", db.CloseAll())
+	errClose := namedErr("close", db.closeAll())
 	if errClose != nil {
 		errs = append(errs, errClose)
 	}
+	errs = append(errs, errSync, errClose, db.meta.Sync())
 	return compoundErrors(errs)
 }
 
-// CloseAll closes all pogreb datastores.
-func (db *DB) CloseAll() error {
+// SyncAndCloseAll implements the method from Keeper to sync and close all bitcask stores.
+func (db *DB) SyncAndCloseAll() error {
+	db.mu.Lock()
+	err := db.syncAndCloseAll()
+	db.mu.Unlock()
+	return err
+}
+
+func (db *DB) closeAll() error {
 	return db.withAll(dclose)
+}
+
+// CloseAll closes all bitcask datastores.
+func (db *DB) CloseAll() error {
+	db.mu.Lock()
+	err := db.closeAll()
+	db.mu.Unlock()
+	return err
 }
 
 // SyncAll syncs all pogreb datastores.
 func (db *DB) SyncAll() error {
-	return db.withAll(dsync)
+	var errs = make([]error, 0)
+	errs = append(errs, db.withAll(dsync))
+	errs = append(errs, db.meta.Sync())
+	return compoundErrors(errs)
 }
 
-// Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
-func (db *DB) Discover() ([]string, error) {
-	if err := db.init(); err != nil {
-		return nil, err
-	}
-	db.mu.Lock()
-	defer db.mu.Unlock()
+func (db *DB) discover() ([]string, error) {
 	stores := make([]string, 0)
 	errs := make([]error, 0)
 	if db.store == nil {
@@ -537,6 +557,17 @@ func (db *DB) Discover() ([]string, error) {
 	}
 
 	return stores, err
+}
+
+// Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
+func (db *DB) Discover() ([]string, error) {
+	if err := db.init(); err != nil {
+		return nil, err
+	}
+	db.mu.Lock()
+	ret, err := db.discover()
+	db.mu.Unlock()
+	return ret, err
 }
 
 func (db *DB) Type() string {

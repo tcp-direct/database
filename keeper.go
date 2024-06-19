@@ -25,7 +25,11 @@ type Keeper interface {
 
 	AllStores() map[string]Filer
 
-	// TODO: Backups
+	// BackupAll should create a backup of all [Filer] instances in the [Keeper].
+	BackupAll(archivePath string) (models.Backup, error)
+
+	// RestoreAll should restore all [Filer] instances from the given archive.
+	RestoreAll(archivePath string) error
 
 	Meta() models.Metadata
 

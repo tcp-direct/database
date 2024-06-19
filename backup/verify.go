@@ -12,21 +12,23 @@ import (
 	"os"
 )
 
-func VerifyBackup(metadata BackupMetadata, path string) error {
+func VerifyBackup(metadata BackupMetadata) error {
 	switch metadata.Format() {
 	case "tar.gz":
 		//
 	default:
 		return errors.New("unsupported backup format")
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(metadata.FilePath)
 	if err != nil {
 		return fmt.Errorf("error opening backup file: %w", err)
 	}
 
 	var hasher hash.Hash
 
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 	switch metadata.Checksum.Type {
 	case "sha256":
 		hasher = sha256.New()

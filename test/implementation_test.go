@@ -1,13 +1,19 @@
 package database_test
 
 import (
+	"bytes"
 	"errors"
 	"path/filepath"
 	"slices"
 	"testing"
 
+	"git.tcp.direct/kayos/common/entropy"
+
+	"git.tcp.direct/tcp.direct/database"
+	"git.tcp.direct/tcp.direct/database/backup"
 	_ "git.tcp.direct/tcp.direct/database/bitcask" // register bitcask
 	"git.tcp.direct/tcp.direct/database/kv"
+	"git.tcp.direct/tcp.direct/database/models"
 	_ "git.tcp.direct/tcp.direct/database/pogreb" // register pogreb
 	"git.tcp.direct/tcp.direct/database/registry"
 )
@@ -133,6 +139,94 @@ func TestImplementationsBasic(t *testing.T) {
 			if nonExistentStore := instance.With(storeName); nonExistentStore != nil {
 				t.Fatalf("expected nil store after close, got %v", nonExistentStore)
 			}
+		})
+	}
+}
+
+func insertGarbo(t *testing.T, db database.Keeper) map[string][]kv.KeyValue {
+	t.Helper()
+	inserted := make(map[string][]kv.KeyValue)
+	for i := 0; i < 10; i++ {
+		newName := entropy.RandStrWithUpper(5)
+		if err := db.Init(newName); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		inserted[newName] = make([]kv.KeyValue, 0, 100)
+		for j := 0; j < 100; j++ {
+			key := []byte(entropy.RandStrWithUpper(10))
+			value := []byte(entropy.RandStrWithUpper(10))
+			if err := db.With(newName).Put(key, value); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			inserted[newName] = append(inserted[newName], kv.NewKeyValueFromBytes(key, value))
+		}
+	}
+	return inserted
+}
+
+func TestImplementationsBackup(t *testing.T) {
+	for _, name := range registry.AllKeepers() {
+		t.Run(name, func(t *testing.T) {
+			// t.Parallel()
+			tpath := filepath.Join(t.TempDir(), name)
+			keeper := registry.GetKeeper(name)
+			if keeper == nil {
+				t.Fatalf("expected keeper for %q, got nil", name)
+			}
+			instance, err := keeper(tpath)
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if instance == nil {
+				t.Fatalf("expected keeper instance, got nil")
+			}
+			garbo := insertGarbo(t, instance)
+			if err = instance.SyncAll(); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			var bu models.Backup
+
+			newBackup := filepath.Join(t.TempDir(), "backup.tar.gz")
+
+			t.Logf("creating backup: %v", newBackup)
+
+			if bu, err = instance.BackupAll(newBackup); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if bu == nil {
+				t.Fatalf("expected backup, got nil")
+			}
+
+			t.Logf("backup creation result: (%T) %v", bu, bu)
+
+			t.Logf("verifying backup: %v", bu.Path())
+
+			if vErr := backup.VerifyBackup(bu.(backup.BackupMetadata)); vErr != nil {
+				t.Fatalf("expected no error, got %v", vErr)
+			}
+
+			t.Logf("restoring backup: %v", bu.Path())
+			if err = instance.RestoreAll(bu.Path()); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			t.Logf("backup restored: %v", bu.Path())
+			t.Run("verify_restored_data", func(t *testing.T) {
+				for storeName, kvs := range garbo {
+					t.Run("store: "+storeName, func(t *testing.T) {
+						for _, kvTuple := range kvs {
+							t.Logf("checking key: %s", kvTuple.Key.String())
+							var ret []byte
+							var getErr error
+							if ret, getErr = instance.With(storeName).Get(kvTuple.Key.Bytes()); getErr != nil {
+								t.Fatalf("expected no error, got %v", getErr)
+							}
+							if !bytes.Equal(kvTuple.Value.Bytes(), ret) {
+								t.Errorf("expected %q, got %q", kvTuple.Value.String(), ret)
+							}
+						}
+					})
+				}
+			})
 		})
 	}
 }

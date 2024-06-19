@@ -185,6 +185,14 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		found, err := db.(*DB).Discover()
 		if err != nil {
 			t.Errorf("[FAIL] failed to discover stores: %e", err)
+			badMeta, err := os.ReadFile(filepath.Join(path, "meta.json"))
+			if err != nil {
+				t.Errorf("[FAIL] failed to read meta.json: %e", err)
+			}
+			if len(badMeta) == 0 {
+				t.Errorf("[FAIL] meta.json is empty")
+			}
+			t.Log(string(badMeta))
 		}
 		for _, n := range names {
 			matched := false

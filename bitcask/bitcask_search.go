@@ -8,9 +8,9 @@ import (
 
 // Search will search for a given string within all values inside of a Store.
 // Note, type casting will be necessary. (e.g: []byte or string)
-func (s *Store) Search(query string) (<-chan *kv.KeyValue, chan error) {
+func (s *Store) Search(query string) (<-chan kv.KeyValue, chan error) {
 	var errChan = make(chan error)
-	var resChan = make(chan *kv.KeyValue, 5)
+	var resChan = make(chan kv.KeyValue, 5)
 	go func() {
 		defer func() {
 			close(resChan)
@@ -49,9 +49,9 @@ func (s *Store) ValueExists(value []byte) (key []byte, ok bool) {
 
 // PrefixScan will scan a Store for all keys that have a matching prefix of the given string
 // and return a map of keys and values. (map[Key]Value)
-func (s *Store) PrefixScan(prefix string) (<-chan *kv.KeyValue, chan error) {
+func (s *Store) PrefixScan(prefix string) (<-chan kv.KeyValue, chan error) {
 	errChan := make(chan error)
-	resChan := make(chan *kv.KeyValue, 5)
+	resChan := make(chan kv.KeyValue, 5)
 	go func() {
 		var err error
 		defer func(e error) {

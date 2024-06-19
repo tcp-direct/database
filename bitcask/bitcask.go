@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -80,14 +81,8 @@ func (db *DB) AllStores() map[string]database.Filer {
 	return stores
 }
 
-func (db *DB) init() error {
-	var err error
-	if db.initialized.Load() {
-		return nil
-	}
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	if _, err = os.Stat(db.path); os.IsNotExist(err) {
+func (db *DB) _init() error {
+	if _, err := os.Stat(db.path); os.IsNotExist(err) {
 		err = os.MkdirAll(db.path, 0700)
 		if err != nil {
 			return fmt.Errorf("error creating bitcask directory: %w", err)
@@ -121,6 +116,15 @@ func (db *DB) init() error {
 	return err
 }
 
+func (db *DB) init() error {
+	if db.initialized.Load() {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db._init()
+}
+
 // OpenDB will either open an existing set of bitcask datastores at the given directory, or it will create a new one.
 func OpenDB(path string) *DB {
 	ainit := &atomic.Bool{}
@@ -134,15 +138,11 @@ func OpenDB(path string) *DB {
 	}
 }
 
-// Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
-func (db *DB) Discover() ([]string, error) {
-	if err := db.init(); err != nil {
-		return nil, err
-	}
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	stores := make([]string, 0)
-	errs := make([]error, 0)
+// discover is a helper function to discover and initialize all existing bitcask stores at the path.
+// caller must hold write lock.
+func (db *DB) discover() ([]string, error) {
+	stores := make([]string, 0, len(db.store))
+	errs := make([]error, 0, len(db.store))
 	if db.store == nil {
 		db.store = make(map[string]*Store)
 	}
@@ -157,6 +157,7 @@ func (db *DB) Discover() ([]string, error) {
 		}
 		name := entry.Name()
 		if _, ok := db.store[name]; ok {
+			stores = append(stores, name)
 			continue
 		}
 		recoverOnce := &sync.Once{}
@@ -180,7 +181,7 @@ func (db *DB) Discover() ([]string, error) {
 				oldMetaBackup := filepath.Join(db.path, name, "meta.json.backup")
 				println("WARN: renaming", oldMeta, "to", oldMetaBackup)
 				if osErr := os.Rename(oldMeta, oldMetaBackup); osErr != nil {
-					println("Fatal: failed to rename", oldMeta, "to", oldMetaBackup, ":", osErr)
+					println("FATAL: failed to rename", oldMeta, "to", oldMetaBackup, ":", osErr)
 					panic(osErr)
 				}
 
@@ -201,6 +202,9 @@ func (db *DB) Discover() ([]string, error) {
 		aclosed := &atomic.Bool{}
 		aclosed.Store(false)
 		db.store[name] = &Store{Bitcask: c, closed: aclosed}
+		if !slices.Contains(db.meta.KnownStores, name) {
+			db.meta.KnownStores = append(db.meta.KnownStores, name)
+		}
 		stores = append(stores, name)
 	}
 
@@ -211,6 +215,17 @@ func (db *DB) Discover() ([]string, error) {
 		}
 		err = fmt.Errorf("%w: %v", err, e)
 	}
+	return stores, err
+}
+
+// Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
+func (db *DB) Discover() ([]string, error) {
+	if err := db.init(); err != nil {
+		return nil, err
+	}
+	db.mu.Lock()
+	stores, err := db.discover()
+	db.mu.Unlock()
 
 	return stores, err
 }
@@ -268,6 +283,9 @@ func (db *DB) Init(storeName string, opts ...any) error {
 
 	db.mu.Lock()
 	err := db.initStore(storeName, bitcaskopts...)
+	if !slices.Contains(db.meta.KnownStores, storeName) {
+		db.meta.KnownStores = append(db.meta.KnownStores, storeName)
+	}
 	db.mu.Unlock()
 
 	return err
@@ -337,7 +355,7 @@ func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
 	newOpts := make([]bitcask.Option, 0)
 	for _, opt := range opts {
 		if _, ok := opt.(bitcask.Option); !ok {
-			fmt.Println("invalid bitcask option type: ", opt)
+			fmt.Println("WARN: ignoring invalid bitcask option type: ", opt)
 			continue
 		}
 		newOpts = append(newOpts, opt.(bitcask.Option))
@@ -351,7 +369,7 @@ func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
 		if d.Bitcask == nil || d.closed == nil || d.closed.Load() {
 			delete(db.store, storeName)
 			if err := db.initStore(storeName, newOpts...); err != nil {
-				fmt.Println("error re-initializing bitcask store: ", err.Error())
+				fmt.Println("ERROR: failed to re-initialize bitcask store: ", err.Error())
 			}
 			return db.store[storeName]
 		}
@@ -360,7 +378,7 @@ func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
 
 	err := db.initStore(storeName, newOpts...)
 	if err != nil {
-		fmt.Println("error creating bitcask store: ", err)
+		fmt.Println("ERROR: failed to create bitcask store: ", err)
 	}
 	return db.store[storeName]
 }
@@ -426,14 +444,12 @@ func (db *DB) withAll(action withAllAction) error {
 		}
 		switch action {
 		case dclose:
-			db.mu.Lock()
 			closeErr := store.Close()
 			if errors.Is(closeErr, fs.ErrClosed) {
 				continue
 			}
 			err = namedErr(name, closeErr)
 			delete(db.store, name)
-			db.mu.Unlock()
 		case dsync:
 			err = namedErr(name, store.Sync())
 		default:
@@ -447,8 +463,7 @@ func (db *DB) withAll(action withAllAction) error {
 	return compoundErrors(errs)
 }
 
-// SyncAndCloseAll implements the method from Keeper to sync and close all bitcask stores.
-func (db *DB) SyncAndCloseAll() error {
+func (db *DB) syncAndCloseAll() error {
 	if db == nil || db.store == nil || len(db.store) < 1 {
 		return ErrNoStores
 	}
@@ -457,21 +472,40 @@ func (db *DB) SyncAndCloseAll() error {
 	if errSync != nil {
 		errs = append(errs, errSync)
 	}
-	errClose := namedErr("close", db.CloseAll())
+	errClose := namedErr("close", db.closeAll())
 	if errClose != nil {
 		errs = append(errs, errClose)
 	}
+	errs = append(errs, errSync, errClose, db.meta.Sync())
 	return compoundErrors(errs)
+}
+
+// SyncAndCloseAll implements the method from Keeper to sync and close all bitcask stores.
+func (db *DB) SyncAndCloseAll() error {
+	db.mu.Lock()
+	err := db.syncAndCloseAll()
+	db.mu.Unlock()
+	return err
+}
+
+func (db *DB) closeAll() error {
+	return db.withAll(dclose)
 }
 
 // CloseAll closes all bitcask datastores.
 func (db *DB) CloseAll() error {
-	return db.withAll(dclose)
+	db.mu.Lock()
+	err := db.closeAll()
+	db.mu.Unlock()
+	return err
 }
 
 // SyncAll syncs all bitcask datastores.
 func (db *DB) SyncAll() error {
-	return db.withAll(dsync)
+	var errs = make([]error, 0)
+	errs = append(errs, db.withAll(dsync))
+	errs = append(errs, db.meta.Sync())
+	return compoundErrors(errs)
 }
 
 // Type returns the type of keeper, in this case "bitcask".

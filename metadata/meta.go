@@ -22,9 +22,11 @@ type Metadata struct {
 	Backups      map[string]models.Backup `json:"backups,omitempty"`
 	Extra        map[string]interface{}   `json:"extra,omitempty"`
 	DefStoreOpts any                      `json:"default_store_opts,omitempty"`
-	w            io.WriteCloser
+	w            io.WriteSeeker
 	path         string
 }
+
+var _ models.Metadata = &Metadata{}
 
 func (m *Metadata) Type() string {
 	return m.KeeperType
@@ -140,12 +142,12 @@ func (m *Metadata) WithLastOpened(lastOpened time.Time) *Metadata {
 
 func (m *Metadata) WithBackups(backups ...models.Backup) *Metadata {
 	for _, bu := range backups {
-		m.Backups[bu.Metadata().Timestamp().String()] = bu
+		m.Backups[bu.Timestamp().String()] = bu
 	}
 	return m
 }
 
-func (m *Metadata) WithWriter(w io.WriteCloser) *Metadata {
+func (m *Metadata) WithWriter(w io.WriteSeeker) *Metadata {
 	if m.w != nil {
 		if m.w.(io.Closer) != nil {
 			_ = m.w.(io.Closer).Close()
@@ -166,8 +168,13 @@ func (m *Metadata) Sync() error {
 			return err
 		}
 	}
-	if _, err = m.w.Write(dat); err != nil {
+	_, _ = m.w.Seek(0, io.SeekStart)
+	n, err := m.w.Write(dat)
+	if err != nil {
 		return err
+	}
+	if truncer, truncOK := m.w.(interface{ Truncate(int64) error }); truncOK {
+		err = truncer.Truncate(int64(n))
 	}
 	return err
 }

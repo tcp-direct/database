@@ -1,10 +1,13 @@
 package models
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Backup interface {
-	Metadata() Metadata
 	Format() string
 	Path() string
+	Timestamp() time.Time
 	json.Marshaler
 }
