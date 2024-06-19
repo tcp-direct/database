@@ -1,16 +1,19 @@
 package pogreb
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	"github.com/akrylysov/pogreb"
 
 	"git.tcp.direct/tcp.direct/database"
+	"git.tcp.direct/tcp.direct/database/kv"
 	"git.tcp.direct/tcp.direct/database/metadata"
 	"git.tcp.direct/tcp.direct/database/models"
 )
@@ -35,6 +38,20 @@ type WrappedOptions struct {
 	*pogreb.Options
 	// AllowRecovery allows the database to be recovered if a lockfile is detected upon running Init.
 	AllowRecovery bool
+}
+
+func (w *WrappedOptions) MarshalJSON() ([]byte, error) {
+	optData, err := json.Marshal(w.Options)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(struct {
+		Options       json.RawMessage `json:"options"`
+		AllowRecovery bool            `json:"allow_recovery"`
+	}{
+		Options:       optData,
+		AllowRecovery: w.AllowRecovery,
+	})
 }
 
 func (pstore *Store) Len() int {
@@ -62,13 +79,36 @@ func (pstore *Store) Has(key []byte) bool {
 type Store struct {
 	*pogreb.DB
 	database.Searcher
-	opts   *WrappedOptions
-	closed bool
+	opts    *WrappedOptions
+	closed  *atomic.Bool
+	metrics *pogreb.Metrics
 }
 
 // Backend returns the underlying pogreb instance.
 func (pstore *Store) Backend() any {
 	return pstore.DB
+}
+
+// Get is a wrapper for pogreb's Get function to regularize errors when keys do not exist.
+func (pstore *Store) Get(key []byte) ([]byte, error) {
+	if pstore.closed.Load() {
+		return nil, fs.ErrClosed
+	}
+	ret, err := pstore.DB.Get(key)
+	if err = kv.RegularizeKVError(key, ret, err); err != nil {
+		return nil, err
+	}
+	return ret, err
+}
+
+// Close is a simple shim for pogreb's Close function.
+func (pstore *Store) Close() error {
+	if pstore.closed.Load() {
+		return fs.ErrClosed
+	}
+	pstore.closed.Store(true)
+	pstore.metrics = pstore.DB.Metrics()
+	return pstore.DB.Close()
 }
 
 // DB is a mapper of a Filer and Searcher implementation using pogreb.
@@ -78,14 +118,52 @@ type DB struct {
 	mu    *sync.RWMutex
 	meta  *metadata.Metadata
 
-	initialized bool
+	initialized *atomic.Bool
 }
 
+type CombinedMetrics struct {
+	Puts           int64 `json:"puts"`
+	Dels           int64 `json:"dels"`
+	Gets           int64 `json:"gets"`
+	HashCollisions int64 `json:"hash_collisions"`
+}
+
+func CombineMetrics(metrics ...*pogreb.Metrics) *CombinedMetrics {
+	var c = &CombinedMetrics{}
+	for _, m := range metrics {
+		c.Puts += m.Puts.Value()
+		c.Dels += m.Dels.Value()
+		c.Gets += m.Gets.Value()
+		c.HashCollisions += m.HashCollisions.Value()
+	}
+	return c
+}
+
+// Meta returns the metadata for the pogreb database.
 func (db *DB) Meta() models.Metadata {
 	db.mu.RLock()
+	if len(db.store) > 1 {
+		mets := make([]*pogreb.Metrics, 0, len(db.store))
+		for _, s := range db.store {
+			s.metrics = s.DB.Metrics()
+			mets = append(mets, s.metrics)
+		}
+		if db.meta.Extra == nil {
+			db.meta.Extra = make(map[string]interface{})
+		}
+		db.meta.Extra["metrics"] = CombineMetrics(mets...)
+	}
 	m := db.meta
 	db.mu.RUnlock()
 	return m
+}
+
+func (db *DB) UpdateMetrics() {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	for _, s := range db.store {
+		s.metrics = s.DB.Metrics()
+	}
 }
 
 // AllStores returns a map of the names of all pogreb datastores and the corresponding Filers.
@@ -103,25 +181,24 @@ func (db *DB) AllStores() map[string]database.Filer {
 
 // OpenDB will either open an existing set of pogreb datastores at the given directory, or it will create a new one.
 func OpenDB(path string) *DB {
+	ainit := &atomic.Bool{}
+	ainit.Store(false)
 	db := &DB{
 		store: make(map[string]*Store),
 		path:  path,
 		mu:    &sync.RWMutex{},
 		meta:  nil,
 
-		initialized: false,
+		initialized: ainit,
 	}
 	return db
 }
 
 func (db *DB) init() error {
 	var err error
-	db.mu.RLock()
-	if db.initialized {
-		db.mu.RUnlock()
+	if db.initialized.Load() {
 		return nil
 	}
-	db.mu.RUnlock()
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if _, err = os.Stat(db.path); os.IsNotExist(err) {
@@ -141,7 +218,7 @@ func (db *DB) init() error {
 		if db.meta.Type() != db.Type() {
 			return fmt.Errorf("meta.json is not a pogreb meta file")
 		}
-		db.initialized = true
+		db.initialized.Store(true)
 		return nil
 	}
 
@@ -150,10 +227,27 @@ func (db *DB) init() error {
 		if err != nil {
 			return fmt.Errorf("error creating meta file: %w", err)
 		}
-		db.initialized = true
+		db.initialized.Store(true)
 		return nil
 	}
 
+	return err
+}
+
+// Destroy will remove a pogreb store and all data associated with it.
+func (db *DB) Destroy(name string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if store, ok := db.store[name]; !ok {
+		return fmt.Errorf("store %s does not exist", name)
+	} else {
+		_ = store.Close()
+	}
+	delete(db.store, name)
+	err := os.RemoveAll(filepath.Join(db.path, name))
+	if err != nil {
+		err = fmt.Errorf("error removing pogreb store's data: %w", err)
+	}
 	return err
 }
 
@@ -179,7 +273,7 @@ func SetDefaultPogrebOptions(pogrebopts ...any) {
 			Options:       &inner,
 			AllowRecovery: false,
 		}
-	case pgoptWrappedOk:
+	default: // case pgoptWrappedOk:
 		defaultPogrebOptions = wrapped
 	}
 }
@@ -215,7 +309,9 @@ func (db *DB) initStore(storeName string, pogrebOpts *WrappedOptions) error {
 	if e != nil {
 		return e
 	}
-	db.store[storeName] = &Store{DB: c}
+	aclosed := &atomic.Bool{}
+	aclosed.Store(false)
+	db.store[storeName] = &Store{DB: c, closed: aclosed, opts: pogrebOpts}
 	return nil
 }
 
@@ -244,11 +340,24 @@ func (db *DB) With(storeName string) database.Store {
 		panic(err)
 	}
 	db.mu.RLock()
-	defer db.mu.RUnlock()
 	d, ok := db.store[storeName]
 	if ok {
+		if d.closed == nil || d.DB == nil || d.closed.Load() {
+			db.mu.RUnlock()
+			db.mu.Lock()
+			delete(db.store, storeName)
+			if err := db.initStore(storeName, defaultPogrebOptions); err != nil {
+				_, _ = os.Stderr.WriteString("error creating pogreb store: " + err.Error())
+				db.mu.Unlock()
+				return nil
+			}
+			db.mu.Unlock()
+			return db.store[storeName]
+		}
+		db.mu.RUnlock()
 		return d
 	}
+	db.mu.RUnlock()
 	return nil
 }
 
@@ -281,7 +390,7 @@ func (db *DB) WithNew(storeName string, opts ...any) database.Filer {
 		return db.store[storeName]
 	}
 	_, _ = os.Stderr.WriteString("error creating pogreb store: " + err.Error())
-	return &Store{DB: nil}
+	return nil
 }
 
 // Close is a simple shim for pogreb's Close function.
@@ -336,11 +445,15 @@ func (db *DB) withAll(action withAllAction) error {
 		}
 		switch action {
 		case dclose:
+			db.mu.Lock()
 			closeErr := store.Close()
 			if errors.Is(closeErr, fs.ErrClosed) {
+				db.mu.Unlock()
 				continue
 			}
 			err = namedErr(name, closeErr)
+			delete(db.store, name)
+			db.mu.Unlock()
 		case dsync:
 			err = namedErr(name, store.Sync())
 		default:
@@ -410,7 +523,9 @@ func (db *DB) Discover() ([]string, error) {
 			continue
 		}
 		stores = append(stores, name)
-		db.store[name] = &Store{DB: db.store[name].DB}
+		aclosed := &atomic.Bool{}
+		aclosed.Store(false)
+		db.store[name] = &Store{DB: db.store[name].DB, closed: aclosed, opts: defaultPogrebOptions}
 	}
 
 	for _, e := range errs {

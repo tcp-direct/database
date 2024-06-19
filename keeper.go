@@ -9,13 +9,17 @@ import "git.tcp.direct/tcp.direct/database/models"
 type Keeper interface {
 	// Path should return the base path where all stores should be stored under. (likely as subdirectories)
 	Path() string
+
 	// Init should initialize our Filer at the given path, to be referenced and called by dataStore.
 	Init(name string, options ...any) error
 	// With provides access to the given dataStore by providing a pointer to the related Filer.
 	With(name string) Store
-
-	// WithNew should initialize a new Filer at the given path.
+	// WithNew should initialize a new Filer at the given path and return a pointer to it.
 	WithNew(name string, options ...any) Filer
+
+	// Destroy should remove the Filer by the given name.
+	// It is up to the implementation to decide if the data should be removed or not.
+	Destroy(name string) error
 
 	Discover() ([]string, error)
 

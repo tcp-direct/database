@@ -15,13 +15,15 @@ import (
 // This is critical for migrating data between [Keeper]s.
 // The only absolute requirement is that the [Type] field is set.
 type Metadata struct {
-	KeeperType  string                   `json:"type"`
-	Created     time.Time                `json:"created,omitempty"`
-	LastOpened  time.Time                `json:"last_opened,omitempty"`
-	KnownStores []string                 `json:"stores,omitempty"`
-	Backups     map[string]models.Backup `json:"backups,omitempty"`
-	w           io.WriteCloser
-	path        string
+	KeeperType   string                   `json:"type"`
+	Created      time.Time                `json:"created,omitempty"`
+	LastOpened   time.Time                `json:"last_opened,omitempty"`
+	KnownStores  []string                 `json:"stores,omitempty"`
+	Backups      map[string]models.Backup `json:"backups,omitempty"`
+	Extra        map[string]interface{}   `json:"extra,omitempty"`
+	DefStoreOpts any                      `json:"default_store_opts,omitempty"`
+	w            io.WriteCloser
+	path         string
 }
 
 func (m *Metadata) Type() string {
@@ -58,6 +60,16 @@ func NewMeta(keeperType string) *Metadata {
 		KnownStores: make([]string, 0),
 		Backups:     make(map[string]models.Backup),
 	}
+}
+
+func (m *Metadata) WithExtra(extra map[string]interface{}) *Metadata {
+	m.Extra = extra
+	return m
+}
+
+func (m *Metadata) WithDefaultStoreOpts(opts any) *Metadata {
+	m.DefStoreOpts = opts
+	return m
 }
 
 func NewMetaFile(keeperType, path string) (*Metadata, error) {
@@ -143,6 +155,7 @@ func (m *Metadata) WithWriter(w io.WriteCloser) *Metadata {
 	return m
 }
 
+// Sync writes the metadata to the designated [io.Writer]. If there is no writer, it will create "meta.json" at m.path.
 func (m *Metadata) Sync() error {
 	dat, err := json.Marshal(m)
 	if err != nil {
@@ -159,12 +172,13 @@ func (m *Metadata) Sync() error {
 	return err
 }
 
+// Close calls [Sync] and then closes the metadata writer, if it is an io.Closer.
 func (m *Metadata) Close() error {
-	if m.w == nil {
-		return nil
+	if err := m.Sync(); err != nil {
+		return err
 	}
-	if m.w.(io.Closer) != nil {
-		return m.w.Close()
+	if closer, closerOK := m.w.(io.Closer); closerOK {
+		return closer.Close()
 	}
 	return nil
 }

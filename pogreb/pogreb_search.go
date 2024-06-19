@@ -13,7 +13,7 @@ import (
 // Search will search for a given string within all values inside of a Store.
 // Note, type casting will be necessary. (e.g: []byte or string)
 func (pstore *Store) Search(query string) (<-chan *kv.KeyValue, chan error) {
-	var errChan = make(chan error)
+	var errChan = make(chan error, 5)
 	var resChan = make(chan *kv.KeyValue, 5)
 	go func() {
 		defer func() {
@@ -21,6 +21,9 @@ func (pstore *Store) Search(query string) (<-chan *kv.KeyValue, chan error) {
 			close(errChan)
 		}()
 		for _, key := range pstore.Keys() {
+			if len(key) == 0 {
+				continue
+			}
 			raw, err := pstore.Get(key)
 			if err != nil {
 				errChan <- err

@@ -354,6 +354,12 @@ func Test_withAll(t *testing.T) {
 		}
 		delete(db.(*DB).store, "yeeterson")
 	})
+
+	// initialize store for the defer closure call
+	if err := db.Init(asdf1); err != nil {
+		t.Fatalf("[FAIL] %e", err)
+	}
+
 }
 
 func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop

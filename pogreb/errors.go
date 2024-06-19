@@ -2,8 +2,7 @@ package pogreb
 
 import (
 	"errors"
-
-	"github.com/hashicorp/go-multierror"
+	"fmt"
 )
 
 //goland:noinspection GoExportedElementShouldHaveComment
@@ -19,15 +18,9 @@ func namedErr(name string, err error) error {
 	if err == nil {
 		return nil
 	}
-	return multierror.Prefix(err, name)
+	return fmt.Errorf("%s: %w", name, err)
 }
 
 func compoundErrors(errs []error) (err error) {
-	for _, e := range errs {
-		if e == nil {
-			continue
-		}
-		err = multierror.Append(err, e)
-	}
-	return
+	return errors.Join(errs...)
 }

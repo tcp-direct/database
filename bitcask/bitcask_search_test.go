@@ -108,7 +108,7 @@ func Test_Search(t *testing.T) {
 	addJunk(db, storename, one, two, three, four, five, t, true)
 
 	// For coverage
-	db.store["yeet"] = Store{Bitcask: nil}
+	db.store["yeet"] = &Store{Bitcask: nil}
 	t.Run("BasicSearch", func(t *testing.T) {
 		t.Logf("executing search for %s", needle)
 		resChan, errChan := db.With(storename).Search(needle)
@@ -198,7 +198,7 @@ func Test_ValueExists(t *testing.T) {
 	})
 
 	t.Run("ValueExistNilBitcask", func(t *testing.T) {
-		db.store["asdb"] = Store{Bitcask: nil}
+		db.store["asdb"] = &Store{Bitcask: nil}
 		garbage := "yeet"
 		if _, exists := db.With(storename).ValueExists([]byte(garbage)); exists {
 			t.Errorf("[FAIL] store should have not contained value %v, should have been nil", []byte(garbage))
