@@ -10,6 +10,7 @@ import (
 	c "git.tcp.direct/kayos/common/entropy"
 	"github.com/davecgh/go-spew/spew"
 
+	"git.tcp.direct/tcp.direct/database"
 	"git.tcp.direct/tcp.direct/database/kv"
 )
 
@@ -111,7 +112,7 @@ func Test_Search(t *testing.T) {
 	db.store["yeet"] = &Store{Bitcask: nil}
 	t.Run("BasicSearch", func(t *testing.T) {
 		t.Logf("executing search for %s", needle)
-		resChan, errChan := db.With(storename).Search(needle)
+		resChan, errChan := db.With(storename).(database.Store).Search(needle)
 		var keys = []int{one, two, three, four, five}
 		var needed = len(keys)
 
@@ -146,7 +147,7 @@ func Test_Search(t *testing.T) {
 		bogus := c.RandStr(55)
 		t.Logf("executing search for %s", bogus)
 		var results []kv.KeyValue
-		resChan, errChan := db.With(storename).Search(bogus)
+		resChan, errChan := db.With(storename).(database.Store).Search(bogus)
 		select {
 		case err := <-errChan:
 			t.Errorf("failed to search: %s", err.Error())
@@ -170,7 +171,7 @@ func Test_ValueExists(t *testing.T) {
 		needles := addJunk(db, storename, c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), c.RNG(100), t, true)
 
 		for _, ndl := range needles {
-			k, exists := db.With(storename).ValueExists(ndl)
+			k, exists := db.With(storename).(database.Store).ValueExists(ndl)
 			if !exists {
 				t.Fatalf("[FAIL] store should have contained a value %s somewhere, it did not.", string(ndl))
 			}
@@ -189,7 +190,7 @@ func Test_ValueExists(t *testing.T) {
 	t.Run("ValueShouldNotExist", func(t *testing.T) {
 		for n := 0; n != 5; n++ {
 			garbage := c.RandStr(55)
-			if _, exists := db.With(storename).ValueExists([]byte(garbage)); exists {
+			if _, exists := db.With(storename).(database.Store).ValueExists([]byte(garbage)); exists {
 				t.Errorf("[FAIL] store should have not contained value %v, but it did", []byte(garbage))
 			} else {
 				t.Logf("[SUCCESS] store succeeded in not having random value %s", garbage)
@@ -200,7 +201,7 @@ func Test_ValueExists(t *testing.T) {
 	t.Run("ValueExistNilBitcask", func(t *testing.T) {
 		db.store["asdb"] = &Store{Bitcask: nil}
 		garbage := "yeet"
-		if _, exists := db.With(storename).ValueExists([]byte(garbage)); exists {
+		if _, exists := db.With(storename).(database.Store).ValueExists([]byte(garbage)); exists {
 			t.Errorf("[FAIL] store should have not contained value %v, should have been nil", []byte(garbage))
 		} else {
 			t.Log("[SUCCESS] store succeeded in being nil")
@@ -227,7 +228,7 @@ func Test_PrefixScan(t *testing.T) {
 			t.Logf("added needle with key(value): %s(%s)", combo.Key.String(), combo.Value.String())
 		}
 	}
-	resChan, errChan := db.With(storename).PrefixScan("user:")
+	resChan, errChan := db.With(storename).(database.Store).PrefixScan("user:")
 	var results []kv.KeyValue
 	for keyValue := range resChan {
 		results = append(results, keyValue)

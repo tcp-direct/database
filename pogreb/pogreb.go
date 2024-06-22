@@ -346,7 +346,7 @@ func (db *DB) Init(storeName string, opts ...any) error {
 }
 
 // With calls the given underlying pogreb instance.
-func (db *DB) With(storeName string) database.Store {
+func (db *DB) With(storeName string) database.Filer {
 	if err := db.init(); err != nil {
 		panic(err)
 	}

@@ -325,7 +325,7 @@ func (db *DB) Destroy(storeName string) error {
 }
 
 // With calls the given underlying bitcask instance.
-func (db *DB) With(storeName string) database.Store {
+func (db *DB) With(storeName string) database.Filer {
 	if err := db.init(); err != nil {
 		panic(err)
 	}
