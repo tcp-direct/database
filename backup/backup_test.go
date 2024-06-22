@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"git.tcp.direct/kayos/common/entropy"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -156,6 +157,14 @@ func TestTarGzBackup_Metadata(t *testing.T) {
 	if !meta.Date.Equal(timestamp) {
 		t.Errorf("expected timestamp %v, got %v", timestamp, meta.Date)
 	}
+
+	t.Run("json", func(t *testing.T) {
+		jDat, err := meta.MarshalJSON()
+		if err != nil {
+			t.Fatalf("error marshalling metadata: %v", err)
+		}
+		t.Logf("metadata json: %s", jDat)
+	})
 }
 
 func TestRestoreTarGzBackup(t *testing.T) {
@@ -202,5 +211,23 @@ func TestRestoreTarGzBackup(t *testing.T) {
 	}
 	if string(tmp) != "yeets2" {
 		t.Errorf("expected file contents yeets2, got %s", tmp)
+	}
+}
+
+func TestFailures(t *testing.T) {
+	if _, err := NewTarGzBackup(entropy.RandStrWithUpper(10), "asdf", nil); err == nil {
+		t.Error("expected error, got nil")
+	}
+	cwd, _ := os.Getwd()
+	if _, err := NewTarGzBackup(cwd, entropy.RandStrWithUpper(10), nil); err == nil {
+		t.Error("expected error, got nil")
+	}
+	if _, err := NewTarGzBackup(cwd, "/dev/null", nil); err == nil {
+		t.Error("expected error, got nil")
+	}
+	path := filepath.Join(t.TempDir(), "yeet.txt")
+	os.WriteFile(path, []byte("yeets"), 0644)
+	if _, err := NewTarGzBackup(path, t.TempDir(), nil); err == nil {
+		t.Error("expected error, got nil")
 	}
 }

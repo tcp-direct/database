@@ -13,7 +13,7 @@ type Keeper interface {
 	// Init should initialize our Filer at the given path, to be referenced and called by dataStore.
 	Init(name string, options ...any) error
 	// With provides access to the given dataStore by providing a pointer to the related Filer.
-	With(name string) Store
+	With(name string) Filer
 	// WithNew should initialize a new Filer at the given path and return a pointer to it.
 	WithNew(name string, options ...any) Filer
 
