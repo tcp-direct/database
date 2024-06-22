@@ -54,14 +54,28 @@ func (m *Metadata) Timestamp() time.Time {
 	return m.LastOpened
 }
 
-func NewMeta(keeperType string) *Metadata {
+type KeeperType string
+
+func NewMeta(keeperType KeeperType) *Metadata {
 	return &Metadata{
-		KeeperType:  keeperType,
+		KeeperType:  string(keeperType),
 		Created:     time.Now(),
 		LastOpened:  time.Now(),
 		KnownStores: make([]string, 0),
 		Backups:     make(map[string]models.Backup),
 	}
+}
+
+func LoadMeta(data []byte) (*Metadata, error) {
+	meta := &Metadata{}
+	err := json.Unmarshal(data, meta)
+	if err != nil {
+		return nil, err
+	}
+	if meta.KeeperType == "" {
+		return nil, errors.New("metadata file does not have a Filer/Store type")
+	}
+	return meta, nil
 }
 
 func (m *Metadata) WithExtra(extra map[string]interface{}) *Metadata {

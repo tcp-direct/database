@@ -61,9 +61,13 @@ type DB struct {
 
 // Meta returns the [models.Metadata] implementation of the bitcask keeper.
 func (db *DB) Meta() models.Metadata {
+	var m models.Metadata
 	db.mu.RLock()
-	m := db.meta
+	m = db.meta
 	db.mu.RUnlock()
+	if m == nil {
+		m = metadata.NewPlaceholder(db.Type())
+	}
 	return m
 }
 

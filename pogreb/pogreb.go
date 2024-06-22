@@ -78,7 +78,6 @@ func (pstore *Store) Has(key []byte) bool {
 // Store is an implmentation of a Filer and a Searcher using Bitcask.
 type Store struct {
 	*pogreb.DB
-	database.Searcher
 	opts    *WrappedOptions
 	closed  *atomic.Bool
 	metrics *pogreb.Metrics
@@ -146,7 +145,7 @@ func (cm *CombinedMetrics) Equal(other *CombinedMetrics) bool {
 // Meta returns the metadata for the pogreb database.
 func (db *DB) Meta() models.Metadata {
 	db.mu.RLock()
-	if len(db.store) > 1 {
+	if len(db.store) > 1 && db.meta != nil {
 		mets := make([]*pogreb.Metrics, 0, len(db.store))
 		for _, s := range db.store {
 			s.metrics = s.DB.Metrics()
@@ -163,6 +162,9 @@ func (db *DB) Meta() models.Metadata {
 	}
 	m := db.meta
 	db.mu.RUnlock()
+	if m == nil {
+		return metadata.NewPlaceholder("pogreb")
+	}
 	return m
 }
 

@@ -3,6 +3,7 @@ package metadata
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -64,6 +65,14 @@ func TestOpenMetaFile_Success(t *testing.T) {
 	}
 	if meta.Type() != keeperType {
 		t.Errorf("expected type %s, got %s", keeperType, meta.Type())
+	}
+
+	metaDat, readErr := os.ReadFile(filepath.Join(path, "meta.json"))
+	if readErr != nil {
+		t.Fatalf("error reading meta.json: %v", readErr)
+	}
+	if meta, err = LoadMeta(metaDat); err != nil {
+		t.Fatalf("error loading meta: %v", err)
 	}
 }
 

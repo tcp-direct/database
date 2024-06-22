@@ -111,25 +111,30 @@ func NewTarGzBackup(inPath string, outPath string, stores []string, extraData ..
 	}
 
 	tmpTar := outPath + ".tar.tmp"
-	f, ferr := os.Create(tmpTar)
+	tmpF, ferr := os.Create(tmpTar)
 	if ferr != nil {
 		return nilBackup, fmt.Errorf("error creating temporary tar file: %w", ferr)
 	}
-	tf := tar.NewWriter(f)
+
+	defer func() {
+		_ = os.Remove(tmpF.Name())
+	}()
+
+	tf := tar.NewWriter(tmpF)
 	if err = tf.AddFS(os.DirFS(inPath)); err != nil {
 		return nilBackup, fmt.Errorf("error adding files to backup: %w", err)
 	}
 	if err = tf.Close(); err != nil {
 		return nilBackup, fmt.Errorf("error closing backup tar file: %w", err)
 	}
-	if err = f.Sync(); err != nil {
+	if err = tmpF.Sync(); err != nil {
 		return nilBackup, fmt.Errorf("error syncing backup tar file: %w", err)
 	}
-	if _, err = f.Seek(0, 0); err != nil {
+	if _, err = tmpF.Seek(0, 0); err != nil {
 		return nilBackup, fmt.Errorf("error seeking to beginning of tar file: %w", err)
 	}
 
-	tfr := tar.NewReader(f)
+	tfr := tar.NewReader(tmpF)
 	var entry *tar.Header
 
 	var seen = make(map[string]bool)
@@ -171,16 +176,16 @@ func NewTarGzBackup(inPath string, outPath string, stores []string, extraData ..
 			gz.Comment += "\n" + string(data)
 		}
 	}
-	if _, err = f.Seek(0, 0); err != nil {
+	if _, err = tmpF.Seek(0, 0); err != nil {
 		return nilBackup, fmt.Errorf("error seeking to beginning of tar file: %w", err)
 	}
-	if _, err = io.CopyBuffer(gz, f, buffer); err != nil {
+	if _, err = io.CopyBuffer(gz, tmpF, buffer); err != nil {
 		return nilBackup, fmt.Errorf("error writing to final tar.gz file: %w", err)
 	}
 	if err = gz.Close(); err != nil {
 		return nilBackup, fmt.Errorf("error closing final tar.gz file: %w", err)
 	}
-	if err = f.Close(); err != nil {
+	if err = tmpF.Close(); err != nil {
 		return nilBackup, fmt.Errorf("error closing temporary tar file: %w", err)
 	}
 	_ = finalFile.Sync()
@@ -198,10 +203,6 @@ func NewTarGzBackup(inPath string, outPath string, stores []string, extraData ..
 	checksum := Checksum{
 		Type:  "sha256",
 		Value: fmt.Sprintf("%x", summah.Sum(nil)),
-	}
-
-	if err = os.Remove(f.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nilBackup, fmt.Errorf("error removing temporary tar file: %w", err)
 	}
 
 	tgz := &TarGzBackup{

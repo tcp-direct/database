@@ -1,6 +1,8 @@
 package database
 
-import "git.tcp.direct/tcp.direct/database/models"
+import (
+	"git.tcp.direct/tcp.direct/database/models"
+)
 
 // Keeper will be in charge of the more meta operations involving Filers.
 // This includes operations like initialization, syncing to disk if applicable, and backing up.
@@ -39,5 +41,3 @@ type Keeper interface {
 	SyncAll() error
 	SyncAndCloseAll() error
 }
-
-type KeeperCreator func(path string) (Keeper, error)

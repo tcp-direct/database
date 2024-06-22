@@ -27,4 +27,10 @@ func Test_Interfaces(t *testing.T) {
 	} else {
 		t.Log("Filer interface implemented")
 	}
+	var store *Store
+	if !database.IsStore(store) {
+		t.Error("Store interface not implemented")
+	} else {
+		t.Log("Store interface implemented")
+	}
 }

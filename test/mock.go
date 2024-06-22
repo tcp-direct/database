@@ -1,10 +1,22 @@
 package database
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
 	"sync"
+	"time"
+
+	"git.tcp.direct/tcp.direct/database"
+	"git.tcp.direct/tcp.direct/database/metadata"
+	"git.tcp.direct/tcp.direct/database/registry"
 
 	"git.tcp.direct/tcp.direct/database/models"
+)
+
+var (
+	mockKeepers = make(map[string]map[string]database.Filer)
+	mockMu      sync.RWMutex
 )
 
 type MockFiler struct {
@@ -12,6 +24,24 @@ type MockFiler struct {
 	values map[string][]byte
 	closed bool
 	mu     sync.RWMutex
+}
+
+func (m *MockKeeper) WriteMeta(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	mockMu.Lock()
+	mockKeepers[m.name] = m.AllStores()
+	mockMu.Unlock()
+	registry.RegisterKeeper(m.name, func(path string) (database.Keeper, error) {
+		return NewMockKeeper(m.name), nil
+	})
+
+	return json.NewEncoder(f).Encode(m.Meta())
 }
 
 func (m *MockFiler) Backend() any {
@@ -82,14 +112,14 @@ func (m *MockFiler) Len() int {
 type MockKeeper struct {
 	name   string
 	path   string
-	stores map[string]Filer
+	stores map[string]database.Filer
 	mu     sync.RWMutex
 }
 
 func NewMockKeeper(name string) *MockKeeper {
 	return &MockKeeper{
 		name:   name,
-		stores: make(map[string]Filer),
+		stores: make(map[string]database.Filer),
 	}
 }
 
@@ -104,7 +134,7 @@ func (m *MockKeeper) Init(name string, options ...any) error {
 	return nil
 }
 
-func (m *MockKeeper) With(name string) Filer {
+func (m *MockKeeper) With(name string) database.Filer {
 	m.mu.RLock()
 	s, ok := m.stores[name]
 	m.mu.RUnlock()
@@ -114,7 +144,7 @@ func (m *MockKeeper) With(name string) Filer {
 	return s
 }
 
-func (m *MockKeeper) WithNew(name string, options ...any) Filer {
+func (m *MockKeeper) WithNew(name string, options ...any) database.Filer {
 	m.mu.RLock()
 	existing, ok := m.stores[name]
 	m.mu.RUnlock()
@@ -142,6 +172,20 @@ func (m *MockKeeper) Destroy(name string) error {
 
 func (m *MockKeeper) Discover() ([]string, error) {
 	m.mu.RLock()
+	if m.stores != nil && len(m.stores) > 0 {
+		m.mu.RUnlock()
+		return nil, nil
+	}
+	mockMu.RLock()
+	stores, ok := mockKeepers[m.name]
+	mockMu.RUnlock()
+	if ok {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.stores = stores
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 	names := make([]string, 0, len(m.stores))
 	for name := range m.stores {
 		names = append(names, name)
@@ -150,9 +194,9 @@ func (m *MockKeeper) Discover() ([]string, error) {
 	return names, nil
 }
 
-func (m *MockKeeper) AllStores() map[string]Filer {
+func (m *MockKeeper) AllStores() map[string]database.Filer {
 	m.mu.RLock()
-	stores := make(map[string]Filer, len(m.stores))
+	stores := make(map[string]database.Filer, len(m.stores))
 	for name, store := range m.stores {
 		stores[name] = store
 	}
@@ -169,7 +213,15 @@ func (m *MockKeeper) RestoreAll(archivePath string) error {
 }
 
 func (m *MockKeeper) Meta() models.Metadata {
-	panic("not implemented")
+	st := m.AllStores()
+	stores := make([]string, 0, len(st))
+	for name := range st {
+		stores = append(stores, name)
+	}
+	return metadata.NewMeta(metadata.KeeperType(m.name)).
+		WithCreated(time.Now()).
+		WithLastOpened(time.Now()).
+		WithStores(stores...)
 }
 
 func (m *MockKeeper) Close(name string) error {
