@@ -5,18 +5,13 @@
 
 `import "git.tcp.direct/tcp.direct/database"`
 
+> [!WARNING]  
+> This package is pre-v1 and the API is NOT stable!
+
 ## Documentation
 
-#### func  AllKeepers
-
 ```go
-func AllKeepers() map[string]KeeperCreator
-```
-
-#### func  RegisterKeeper
-
-```go
-func RegisterKeeper(name string, keeper KeeperCreator)
+var ErrKeyNotFound = errors.New("key not found")
 ```
 
 #### type Filer
@@ -60,17 +55,27 @@ store to satisfy an overencompassing interface.
 type Keeper interface {
 	// Path should return the base path where all stores should be stored under. (likely as subdirectories)
 	Path() string
+
 	// Init should initialize our Filer at the given path, to be referenced and called by dataStore.
 	Init(name string, options ...any) error
 	// With provides access to the given dataStore by providing a pointer to the related Filer.
-	With(name string) Store
-
-	// WithNew should initialize a new Filer at the given path.
+	With(name string) Filer
+	// WithNew should initialize a new Filer at the given path and return a pointer to it.
 	WithNew(name string, options ...any) Filer
+
+	// Destroy should remove the Filer by the given name.
+	// It is up to the implementation to decide if the data should be removed or not.
+	Destroy(name string) error
 
 	Discover() ([]string, error)
 
 	AllStores() map[string]Filer
+
+	// BackupAll should create a backup of all [Filer] instances in the [Keeper].
+	BackupAll(archivePath string) (models.Backup, error)
+
+	// RestoreAll should restore all [Filer] instances from the given archive.
+	RestoreAll(archivePath string) error
 
 	Meta() models.Metadata
 
@@ -96,10 +101,164 @@ type KeeperCreator func(path string) (Keeper, error)
 ```
 
 
-#### func  GetKeeper
+#### type MockFiler
 
 ```go
-func GetKeeper(name string) KeeperCreator
+type MockFiler struct {
+}
+```
+
+
+#### func (*MockFiler) Backend
+
+```go
+func (m *MockFiler) Backend() any
+```
+
+#### func (*MockFiler) Close
+
+```go
+func (m *MockFiler) Close() error
+```
+
+#### func (*MockFiler) Delete
+
+```go
+func (m *MockFiler) Delete(key []byte) error
+```
+
+#### func (*MockFiler) Get
+
+```go
+func (m *MockFiler) Get(key []byte) ([]byte, error)
+```
+
+#### func (*MockFiler) Has
+
+```go
+func (m *MockFiler) Has(key []byte) bool
+```
+
+#### func (*MockFiler) Keys
+
+```go
+func (m *MockFiler) Keys() [][]byte
+```
+
+#### func (*MockFiler) Len
+
+```go
+func (m *MockFiler) Len() int
+```
+
+#### func (*MockFiler) Put
+
+```go
+func (m *MockFiler) Put(key []byte, value []byte) error
+```
+
+#### func (*MockFiler) Sync
+
+```go
+func (m *MockFiler) Sync() error
+```
+
+#### type MockKeeper
+
+```go
+type MockKeeper struct {
+}
+```
+
+
+#### func  NewMockKeeper
+
+```go
+func NewMockKeeper(name string) *MockKeeper
+```
+
+#### func (*MockKeeper) AllStores
+
+```go
+func (m *MockKeeper) AllStores() map[string]Filer
+```
+
+#### func (*MockKeeper) BackupAll
+
+```go
+func (m *MockKeeper) BackupAll(archivePath string) (models.Backup, error)
+```
+
+#### func (*MockKeeper) Close
+
+```go
+func (m *MockKeeper) Close(name string) error
+```
+
+#### func (*MockKeeper) CloseAll
+
+```go
+func (m *MockKeeper) CloseAll() error
+```
+
+#### func (*MockKeeper) Destroy
+
+```go
+func (m *MockKeeper) Destroy(name string) error
+```
+
+#### func (*MockKeeper) Discover
+
+```go
+func (m *MockKeeper) Discover() ([]string, error)
+```
+
+#### func (*MockKeeper) Init
+
+```go
+func (m *MockKeeper) Init(name string, options ...any) error
+```
+
+#### func (*MockKeeper) Meta
+
+```go
+func (m *MockKeeper) Meta() models.Metadata
+```
+
+#### func (*MockKeeper) Path
+
+```go
+func (m *MockKeeper) Path() string
+```
+
+#### func (*MockKeeper) RestoreAll
+
+```go
+func (m *MockKeeper) RestoreAll(archivePath string) error
+```
+
+#### func (*MockKeeper) SyncAll
+
+```go
+func (m *MockKeeper) SyncAll() error
+```
+
+#### func (*MockKeeper) SyncAndCloseAll
+
+```go
+func (m *MockKeeper) SyncAndCloseAll() error
+```
+
+#### func (*MockKeeper) With
+
+```go
+func (m *MockKeeper) With(name string) Filer
+```
+
+#### func (*MockKeeper) WithNew
+
+```go
+func (m *MockKeeper) WithNew(name string, options ...any) Filer
 ```
 
 #### type Searcher
@@ -107,9 +266,9 @@ func GetKeeper(name string) KeeperCreator
 ```go
 type Searcher interface {
 	// PrefixScan must retrieve all keys in the datastore and stream them to the given channel.
-	PrefixScan(prefix string) (<-chan *kv.KeyValue, chan error)
+	PrefixScan(prefix string) (<-chan kv.KeyValue, chan error)
 	// Search must be able to search through the value contents of our database and stream the results to the given channel.
-	Search(query string) (<-chan *kv.KeyValue, chan error)
+	Search(query string) (<-chan kv.KeyValue, chan error)
 	// ValueExists searches for an exact match of the given value and returns the key that contains it.
 	ValueExists(value []byte) (key []byte, ok bool)
 }

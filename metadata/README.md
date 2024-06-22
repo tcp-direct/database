@@ -6,11 +6,13 @@
 
 ```go
 type Metadata struct {
-	KeeperType  string                   `json:"type"`
-	Created     time.Time                `json:"created,omitempty"`
-	LastOpened  time.Time                `json:"last_opened,omitempty"`
-	KnownStores []string                 `json:"stores,omitempty"`
-	Backups     map[string]models.Backup `json:"backups,omitempty"`
+	KeeperType   string                   `json:"type"`
+	Created      time.Time                `json:"created,omitempty"`
+	LastOpened   time.Time                `json:"last_opened,omitempty"`
+	KnownStores  []string                 `json:"stores,omitempty"`
+	Backups      map[string]models.Backup `json:"backups,omitempty"`
+	Extra        map[string]interface{}   `json:"extra,omitempty"`
+	DefStoreOpts any                      `json:"default_store_opts,omitempty"`
 }
 ```
 
@@ -47,6 +49,7 @@ func (m *Metadata) AddStore(name string)
 ```go
 func (m *Metadata) Close() error
 ```
+Close calls [Sync] and then closes the metadata writer, if it is an io.Closer.
 
 #### func (*Metadata) Ping
 
@@ -65,6 +68,8 @@ func (m *Metadata) RemoveStore(name string)
 ```go
 func (m *Metadata) Sync() error
 ```
+Sync writes the metadata to the designated [io.Writer]. If there is no writer,
+it will create "meta.json" at m.path.
 
 #### func (*Metadata) Timestamp
 
@@ -90,6 +95,18 @@ func (m *Metadata) WithBackups(backups ...models.Backup) *Metadata
 func (m *Metadata) WithCreated(created time.Time) *Metadata
 ```
 
+#### func (*Metadata) WithDefaultStoreOpts
+
+```go
+func (m *Metadata) WithDefaultStoreOpts(opts any) *Metadata
+```
+
+#### func (*Metadata) WithExtra
+
+```go
+func (m *Metadata) WithExtra(extra map[string]interface{}) *Metadata
+```
+
 #### func (*Metadata) WithLastOpened
 
 ```go
@@ -105,7 +122,7 @@ func (m *Metadata) WithStores(stores ...string) *Metadata
 #### func (*Metadata) WithWriter
 
 ```go
-func (m *Metadata) WithWriter(w io.WriteCloser) *Metadata
+func (m *Metadata) WithWriter(w io.WriteSeeker) *Metadata
 ```
 
 ---

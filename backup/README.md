@@ -2,6 +2,18 @@
 
 
 
+#### func  RestoreTarGzBackup
+
+```go
+func RestoreTarGzBackup(inPath string, outPath string) error
+```
+
+#### func  VerifyBackup
+
+```go
+func VerifyBackup(metadata BackupMetadata) error
+```
+
 #### type BackupMetadata
 
 ```go
@@ -16,10 +28,22 @@ type BackupMetadata struct {
 ```
 
 
+#### func  NewTarGzBackup
+
+```go
+func NewTarGzBackup(inPath string, outPath string, stores []string, extraData ...[]byte) (BackupMetadata, error)
+```
+
 #### func (BackupMetadata) Format
 
 ```go
 func (bm BackupMetadata) Format() string
+```
+
+#### func (BackupMetadata) MarshalJSON
+
+```go
+func (bm BackupMetadata) MarshalJSON() ([]byte, error)
 ```
 
 #### func (BackupMetadata) Path
@@ -32,6 +56,12 @@ func (bm BackupMetadata) Path() string
 
 ```go
 func (bm BackupMetadata) Timestamp() time.Time
+```
+
+#### func (BackupMetadata) Type
+
+```go
+func (bm BackupMetadata) Type() string
 ```
 
 #### type Checksum
@@ -66,12 +96,6 @@ type TarGzBackup struct {
 }
 ```
 
-
-#### func  NewTarGzBackup
-
-```go
-func NewTarGzBackup(inPath string, outPath string, stores []string, extraData ...[]byte) (*TarGzBackup, error)
-```
 
 #### func (*TarGzBackup) Format
 
