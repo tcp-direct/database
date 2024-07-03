@@ -75,6 +75,13 @@ func (pstore *Store) Has(key []byte) bool {
 	return ok
 }
 
+type Metrics struct {
+	Puts           int64 `json:"puts"`
+	Dels           int64 `json:"dels"`
+	Gets           int64 `json:"gets"`
+	HashCollisions int64 `json:"hash_collisions"`
+}
+
 // Store is an implmentation of a Filer and a Searcher using Bitcask.
 type Store struct {
 	*pogreb.DB
@@ -514,8 +521,37 @@ func (db *DB) CloseAll() error {
 	return err
 }
 
+func (db *DB) allMetrics() map[string]*pogreb.Metrics {
+	db.UpdateMetrics()
+	allmet := make(map[string]*pogreb.Metrics, len(db.store))
+	db.mu.RLock()
+	for name, store := range db.store {
+		if store == nil || store.Backend().(*pogreb.DB) == nil {
+			continue
+		}
+		allmet[name] = store.metrics
+	}
+	db.mu.RUnlock()
+	return allmet
+}
+
+func (db *DB) addAllStoresToMeta() {
+	storeMap := db.AllStores()
+	storeNames := make([]string, len(storeMap))
+	for name := range storeMap {
+		storeNames = append(storeNames, name)
+	}
+	db.meta = db.meta.WithStores(storeNames...)
+}
+
+func (db *DB) syncMetaValues() {
+	db.addAllStoresToMeta()
+	db.meta = db.meta.WithExtra(map[string]interface{}{"metrics": db.allMetrics()})
+}
+
 // SyncAll syncs all pogreb datastores.
 func (db *DB) SyncAll() error {
+	db.syncMetaValues()
 	var errs = make([]error, 0)
 	errs = append(errs, db.withAll(dsync))
 	errs = append(errs, db.meta.Sync())

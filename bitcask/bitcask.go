@@ -503,9 +503,18 @@ func (db *DB) CloseAll() error {
 	db.mu.Unlock()
 	return err
 }
+func (db *DB) addAllStoresToMeta() {
+	storeMap := db.AllStores()
+	storeNames := make([]string, len(storeMap))
+	for name := range storeMap {
+		storeNames = append(storeNames, name)
+	}
+	db.meta = db.meta.WithStores(storeNames...)
+}
 
-// SyncAll syncs all bitcask datastores.
+// SyncAll syncs all pogreb datastores.
 func (db *DB) SyncAll() error {
+	db.addAllStoresToMeta()
 	var errs = make([]error, 0)
 	errs = append(errs, db.withAll(dsync))
 	errs = append(errs, db.meta.Sync())
