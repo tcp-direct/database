@@ -71,18 +71,23 @@ func (db *DB) Meta() models.Metadata {
 	return m
 }
 
+func (db *DB) allStores() map[string]database.Filer {
+	var stores = make(map[string]database.Filer)
+	for n, s := range db.store {
+		stores[n] = s
+	}
+	return stores
+}
+
 // AllStores returns a map of the names of all bitcask datastores and the corresponding Filers.
 func (db *DB) AllStores() map[string]database.Filer {
 	if err := db.init(); err != nil {
 		panic(err)
 	}
 	db.mu.RLock()
-	defer db.mu.RUnlock()
-	var stores = make(map[string]database.Filer)
-	for n, s := range db.store {
-		stores[n] = s
-	}
-	return stores
+	ast := db.allStores()
+	db.mu.RUnlock()
+	return ast
 }
 
 func (db *DB) _init() error {
@@ -504,7 +509,7 @@ func (db *DB) CloseAll() error {
 	return err
 }
 func (db *DB) addAllStoresToMeta() {
-	storeMap := db.AllStores()
+	storeMap := db.allStores()
 	storeNames := make([]string, len(storeMap))
 	for name := range storeMap {
 		storeNames = append(storeNames, name)
@@ -513,6 +518,7 @@ func (db *DB) addAllStoresToMeta() {
 }
 
 // SyncAll syncs all pogreb datastores.
+// TODO: investigate locking here, right now if we try to hold a lock during a backup we'll hang :^)
 func (db *DB) SyncAll() error {
 	db.addAllStoresToMeta()
 	var errs = make([]error, 0)

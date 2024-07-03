@@ -175,23 +175,35 @@ func (db *DB) Meta() models.Metadata {
 	return m
 }
 
-func (db *DB) UpdateMetrics() {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+func (db *DB) updateMetrics() {
 	for _, s := range db.store {
-		s.metrics = s.DB.Metrics()
+		if s != nil && s.DB != nil {
+			s.metrics = s.DB.Metrics()
+		}
 	}
 }
 
-// AllStores returns a map of the names of all pogreb datastores and the corresponding Filers.
-func (db *DB) AllStores() map[string]database.Filer {
+func (db *DB) UpdateMetrics() {
 	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.updateMetrics()
+	db.mu.RUnlock()
+}
+
+func (db *DB) allStores() map[string]database.Filer {
 	var stores = make(map[string]database.Filer)
 	for n, s := range db.store {
 		stores[n] = s
 	}
 	return stores
+}
+
+// AllStores returns a map of the names of all pogreb datastores and the corresponding Filers.
+func (db *DB) AllStores() map[string]database.Filer {
+
+	db.mu.RLock()
+	ast := db.allStores()
+	db.mu.RUnlock()
+	return ast
 }
 
 // FIXME: not returning the error is probably pretty irresponsible.
@@ -522,21 +534,19 @@ func (db *DB) CloseAll() error {
 }
 
 func (db *DB) allMetrics() map[string]*pogreb.Metrics {
-	db.UpdateMetrics()
+	db.updateMetrics()
 	allmet := make(map[string]*pogreb.Metrics, len(db.store))
-	db.mu.RLock()
 	for name, store := range db.store {
 		if store == nil || store.Backend().(*pogreb.DB) == nil {
 			continue
 		}
 		allmet[name] = store.metrics
 	}
-	db.mu.RUnlock()
 	return allmet
 }
 
 func (db *DB) addAllStoresToMeta() {
-	storeMap := db.AllStores()
+	storeMap := db.allStores()
 	storeNames := make([]string, len(storeMap))
 	for name := range storeMap {
 		storeNames = append(storeNames, name)
@@ -550,6 +560,7 @@ func (db *DB) syncMetaValues() {
 }
 
 // SyncAll syncs all pogreb datastores.
+// TODO: investigate locking here, right now if we try to hold a lock during a backup we'll hang :^)
 func (db *DB) SyncAll() error {
 	db.syncMetaValues()
 	var errs = make([]error, 0)

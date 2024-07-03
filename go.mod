@@ -23,6 +23,7 @@ require (
 )
 
 retract (
+	v0.4.3 // deadlock
 	v0.4.0 // broken metadata system
 	v0.3.0 // doesn't pass go vet
 )
