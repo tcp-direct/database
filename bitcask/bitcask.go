@@ -150,6 +150,16 @@ func OpenDB(path string) *DB {
 // discover is a helper function to discover and initialize all existing bitcask stores at the path.
 // caller must hold write lock.
 func (db *DB) discover() ([]string, error) {
+	if db.initialized.Load() {
+		stores := make([]string, 0, len(db.store))
+		for store := range db.store {
+			if store == "" {
+				continue
+			}
+			stores = append(stores, store)
+		}
+		return stores, nil
+	}
 	stores := make([]string, 0, len(db.store))
 	errs := make([]error, 0, len(db.store))
 	if db.store == nil {
@@ -510,8 +520,11 @@ func (db *DB) CloseAll() error {
 }
 func (db *DB) addAllStoresToMeta() {
 	storeMap := db.allStores()
-	storeNames := make([]string, len(storeMap))
+	storeNames := make([]string, 0, len(storeMap))
 	for name := range storeMap {
+		if name == "" {
+			continue
+		}
 		storeNames = append(storeNames, name)
 	}
 	db.meta = db.meta.WithStores(storeNames...)

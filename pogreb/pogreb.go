@@ -547,8 +547,11 @@ func (db *DB) allMetrics() map[string]*pogreb.Metrics {
 
 func (db *DB) addAllStoresToMeta() {
 	storeMap := db.allStores()
-	storeNames := make([]string, len(storeMap))
+	storeNames := make([]string, 0, len(storeMap))
 	for name := range storeMap {
+		if name == "" {
+			continue
+		}
 		storeNames = append(storeNames, name)
 	}
 	db.meta = db.meta.WithStores(storeNames...)
@@ -570,6 +573,16 @@ func (db *DB) SyncAll() error {
 }
 
 func (db *DB) discover() ([]string, error) {
+	if db.initialized.Load() {
+		stores := make([]string, 0, len(db.store))
+		for name := range db.store {
+			if name == "" {
+				continue
+			}
+			stores = append(stores, name)
+		}
+		return stores, nil
+	}
 	stores := make([]string, 0)
 	errs := make([]error, 0)
 	if db.store == nil {
