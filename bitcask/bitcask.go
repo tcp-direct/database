@@ -226,6 +226,12 @@ func (db *DB) discover(force ...bool) ([]string, error) {
 		aclosed := &atomic.Bool{}
 		aclosed.Store(false)
 		db.store[name] = &Store{Bitcask: c, closed: aclosed}
+		if db.meta == nil {
+			db.meta = metadata.NewMeta("bitcask")
+		}
+		if db.meta.KnownStores == nil {
+			db.meta.KnownStores = make([]string, 0)
+		}
 		if !slices.Contains(db.meta.KnownStores, name) {
 			db.meta.KnownStores = append(db.meta.KnownStores, name)
 		}
