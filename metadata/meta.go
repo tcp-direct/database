@@ -15,13 +15,13 @@ import (
 // This is critical for migrating data between [Keeper]s.
 // The only absolute requirement is that the [Type] field is set.
 type Metadata struct {
-	KeeperType   string                   `json:"type"`
-	Created      time.Time                `json:"created,omitempty"`
-	LastOpened   time.Time                `json:"last_opened,omitempty"`
-	KnownStores  []string                 `json:"stores,omitempty"`
-	Backups      map[string]models.Backup `json:"backups,omitempty"`
-	Extra        map[string]interface{}   `json:"extra,omitempty"`
-	DefStoreOpts any                      `json:"default_store_opts,omitempty"`
+	KeeperType   string                 `json:"type"`
+	Created      time.Time              `json:"created,omitempty"`
+	LastOpened   time.Time              `json:"last_opened,omitempty"`
+	KnownStores  []string               `json:"stores,omitempty"`
+	Backups      map[string]any         `json:"backups,omitempty"`
+	Extra        map[string]interface{} `json:"extra,omitempty"`
+	DefStoreOpts any                    `json:"default_store_opts,omitempty"`
 	w            io.WriteSeeker
 	path         string
 }
@@ -62,7 +62,7 @@ func NewMeta(keeperType KeeperType) *Metadata {
 		Created:     time.Now(),
 		LastOpened:  time.Now(),
 		KnownStores: make([]string, 0),
-		Backups:     make(map[string]models.Backup),
+		Backups:     make(map[string]any),
 	}
 }
 
@@ -94,7 +94,7 @@ func NewMetaFile(keeperType, path string) (*Metadata, error) {
 		Created:     time.Now(),
 		LastOpened:  time.Now(),
 		KnownStores: make([]string, 0),
-		Backups:     make(map[string]models.Backup),
+		Backups:     make(map[string]any),
 		path:        path,
 	}
 	stat, err := os.Stat(path)

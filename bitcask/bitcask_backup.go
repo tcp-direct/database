@@ -52,7 +52,7 @@ func (db *DB) BackupAll(archivePath string) (models.Backup, error) {
 		return nil, err
 	}
 	if db.meta.Backups == nil {
-		db.meta.Backups = make(map[string]models.Backup)
+		db.meta.Backups = make(map[string]any)
 	}
 	db.meta.Backups[bu.FilePath] = bu
 	err = db.meta.Sync()
