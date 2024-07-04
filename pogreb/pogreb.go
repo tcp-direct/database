@@ -162,9 +162,13 @@ func (db *DB) Meta() models.Metadata {
 			db.meta.Extra = make(map[string]interface{})
 		}
 		newMet := CombineMetrics(mets...)
-		if db.meta.Extra["metrics"] == nil || !newMet.Equal(db.meta.Extra["metrics"].(*CombinedMetrics)) {
-			db.meta.Extra["metrics"] = newMet
-			_ = db.meta.Sync()
+		_, metValMapOK := db.meta.Extra["metrics"].(*CombinedMetrics)
+		_, metValMapMapOK := db.meta.Extra["metrics"].(map[string]interface{})
+		if metValMapOK {
+			if metValMapMapOK || !newMet.Equal(db.meta.Extra["metrics"].(*CombinedMetrics)) {
+				db.meta.Extra["metrics"] = newMet
+				_ = db.meta.Sync()
+			}
 		}
 	}
 	m := db.meta
