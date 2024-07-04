@@ -199,7 +199,6 @@ func (db *DB) allStores() map[string]database.Filer {
 
 // AllStores returns a map of the names of all pogreb datastores and the corresponding Filers.
 func (db *DB) AllStores() map[string]database.Filer {
-
 	db.mu.RLock()
 	ast := db.allStores()
 	db.mu.RUnlock()
@@ -262,8 +261,9 @@ func (db *DB) init() error {
 		return nil
 	}
 	db.mu.Lock()
-	defer db.mu.Unlock()
-	return db._init()
+	err := db._init()
+	db.mu.Unlock()
+	return err
 }
 
 // Destroy will remove a pogreb store and all data associated with it.
@@ -547,6 +547,10 @@ func (db *DB) allMetrics() map[string]*pogreb.Metrics {
 
 func (db *DB) addAllStoresToMeta() {
 	storeMap := db.allStores()
+	if len(storeMap) == 0 {
+		println("no stores to add")
+		return
+	}
 	storeNames := make([]string, 0, len(storeMap))
 	for name := range storeMap {
 		if name == "" {
@@ -572,8 +576,8 @@ func (db *DB) SyncAll() error {
 	return compoundErrors(errs)
 }
 
-func (db *DB) discover() ([]string, error) {
-	if db.initialized.Load() {
+func (db *DB) discover(force ...bool) ([]string, error) {
+	if db.initialized.Load() && (len(force) == 0 || !force[0]) {
 		stores := make([]string, 0, len(db.store))
 		for name := range db.store {
 			if name == "" {
@@ -581,7 +585,9 @@ func (db *DB) discover() ([]string, error) {
 			}
 			stores = append(stores, name)
 		}
-		return stores, nil
+		if len(stores) > 0 {
+			return stores, nil
+		}
 	}
 	stores := make([]string, 0)
 	errs := make([]error, 0)
@@ -592,6 +598,9 @@ func (db *DB) discover() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	_ = db._init()
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -624,6 +633,7 @@ func (db *DB) discover() ([]string, error) {
 // Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
 func (db *DB) Discover() ([]string, error) {
 	if err := db.init(); err != nil {
+		println("error initializing")
 		return nil, err
 	}
 	db.mu.Lock()

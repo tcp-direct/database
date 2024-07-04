@@ -17,6 +17,13 @@ import (
 func newTestDB(t *testing.T) (string, database.Keeper) {
 	t.Helper()
 	tpath := t.TempDir()
+	t.Cleanup(func() {
+		t.Logf("[CLEANUP] removing temp dir %s", tpath)
+		err := os.RemoveAll(tpath)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			panic(err.Error())
+		}
+	})
 	tdb := OpenDB(tpath)
 	if tdb == nil {
 		t.Fatalf("failed to open testdb at %s, got nil", tpath)
@@ -35,7 +42,7 @@ func seedRandStores(db database.Keeper, t *testing.T) []string {
 		randstore := c.RandStr(5)
 		err := db.Init(randstore)
 		if err != nil {
-			t.Errorf("failed to initialize store for test SyncAndCloseAll: %e", err)
+			t.Errorf("failed to initialize store for test SyncAndCloseAll: %s", err.Error())
 		}
 		err = seedRandKV(db, randstore)
 		if err != nil {
@@ -93,7 +100,7 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		err := db.With("simple").Put(key, value)
 		t.Logf("Put Value %v at Key %v", string(value), key)
 		if err != nil {
-			t.Fatalf("[FAIL] %e", err)
+			t.Fatalf("[FAIL] %s", err.Error())
 		}
 		gvalue, gerr := db.With("simple").Get(key)
 		if gerr != nil {
@@ -107,16 +114,16 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 	t.Run("withNewStoreDoesExist", func(t *testing.T) {
 		nope := db.WithNew("bing")
 		if err := nope.Put([]byte("key"), []byte("value")); err != nil {
-			t.Fatalf("[FAIL] %e", err)
+			t.Fatalf("[FAIL] %s", err.Error())
 		}
 		err := nope.Put([]byte("bing"), []byte("bong"))
 		if err != nil {
-			t.Fatalf("[FAIL] %e", err)
+			t.Fatalf("[FAIL] %s", err.Error())
 		}
 		yup := db.WithNew("bing")
 		res, err := yup.Get([]byte("bing"))
 		if err != nil {
-			t.Errorf("[FAIL] %e", err)
+			t.Errorf("[FAIL] %s", err.Error())
 		}
 		if !bytes.Equal(res, []byte("bong")) {
 			t.Errorf("[FAIL] wanted %v, got %v", string("bong"), string(res))
@@ -147,7 +154,7 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		if err == nil {
 			t.Fatalf("[FAIL] we should have gotten an error from bogus store map entry")
 		}
-		t.Logf("[SUCCESS] got compound error: %e", err)
+		t.Logf("[SUCCESS] got compound error: %s", err.Error())
 	})
 
 	// TODO: make sure sync is ACTUALLY sycing instead of only checking for nil err... ( ._. )
@@ -155,20 +162,20 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 	t.Run("syncAll", func(t *testing.T) {
 		err := db.SyncAll()
 		if err != nil {
-			t.Fatalf("[FAIL] got compound error: %e", err)
+			t.Fatalf("[FAIL] got compound error: %s", err.Error())
 		}
 	})
 	t.Run("closeAll", func(t *testing.T) {
 		t.Cleanup(func() {
 			err := os.RemoveAll("./testdata")
 			if err != nil {
-				t.Fatalf("[CLEANUP FAIL] %e", err)
+				t.Fatalf("[CLEANUP FAIL] %s", err.Error())
 			}
 			t.Logf("[CLEANUP] cleaned up ./testdata")
 		})
 		err := db.CloseAll()
 		if err != nil {
-			t.Fatalf("[FAIL] got compound error: %e", err)
+			t.Fatalf("[FAIL] got compound error: %s", err.Error())
 		}
 		db = nil
 	})
@@ -178,12 +185,15 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		names := seedRandStores(db, t)
 		err := db.SyncAndCloseAll()
 		if err != nil {
-			t.Errorf("[FAIL] failed to SyncAndCloseAll: %e", err)
+			t.Fatalf("[FAIL] failed to SyncAndCloseAll: %s", err.Error())
 		}
 		db = OpenDB(tdbp)
-		found, err := db.Discover()
+		found, err := db.(*DB).Discover()
 		if err != nil {
-			t.Errorf("[FAIL] failed to discover stores: %e", err)
+			t.Fatalf("[FAIL] failed to discover stores: %s", err.Error())
+		}
+		if len(found) == 0 {
+			t.Fatalf("[FAIL] found no stores")
 		}
 		for _, n := range names {
 			matched := false
@@ -246,7 +256,7 @@ func Test_Close(t *testing.T) {
 	t.Run("CantCloseBogusStore", func(t *testing.T) {
 		err := db.Close(c.RandStr(55))
 		if !errors.Is(err, ErrBogusStore) {
-			t.Errorf("[FAIL] got err %e, wanted err %e", err, ErrBogusStore)
+			t.Errorf("[FAIL] got err %s, wanted err %s", err.Error(), ErrBogusStore)
 		}
 	})
 }
@@ -264,7 +274,7 @@ func Test_withAll(t *testing.T) {
 	t.Run("withAllNoStores", func(t *testing.T) {
 		err := db.(*DB).withAll(121)
 		if !errors.Is(err, ErrNoStores) {
-			t.Errorf("[FAIL] got err %e, wanted err %e", err, ErrNoStores)
+			t.Errorf("[FAIL] got err %s, wanted err %s", err.Error(), ErrNoStores)
 		}
 	})
 	t.Run("withAllNilMap", func(t *testing.T) {
@@ -278,11 +288,11 @@ func Test_withAll(t *testing.T) {
 	t.Run("withAllBogusAction", func(t *testing.T) {
 		err := db.Init(asdf1)
 		if err != nil {
-			t.Errorf("[FAIL] unexpected error: %e", err)
+			t.Errorf("[FAIL] unexpected error: %s", err.Error())
 		}
 		wAllErr := db.(*DB).withAll(121)
 		if !errors.Is(wAllErr, ErrUnknownAction) {
-			t.Errorf("[FAIL] wanted error %e, got error %e", ErrUnknownAction, err)
+			t.Errorf("[FAIL] wanted error %s, got error %s", ErrUnknownAction.Error(), err)
 		}
 	})
 	t.Run("ListAll", func(t *testing.T) {
@@ -306,15 +316,15 @@ func Test_withAll(t *testing.T) {
 	t.Run("ListAllAndInteract", func(t *testing.T) {
 		err := db.Init(asdf2)
 		if err != nil {
-			t.Errorf("[FAIL] unexpected error: %e", err)
+			t.Errorf("[FAIL] unexpected error: %s", err.Error())
 		}
 		err = db.With(asdf1).Put([]byte("asdf"), []byte("asdf"))
 		if err != nil {
-			t.Errorf("[FAIL] unexpected error: %e", err)
+			t.Errorf("[FAIL] unexpected error: %s", err.Error())
 		}
 		err = db.With(asdf2).Put([]byte("asdf"), []byte("asdf"))
 		if err != nil {
-			t.Errorf("[FAIL] unexpected error: %e", err)
+			t.Errorf("[FAIL] unexpected error: %s", err.Error())
 		}
 		allStores := db.AllStores()
 		if len(allStores) == 0 {
@@ -357,13 +367,18 @@ func Test_withAll(t *testing.T) {
 
 	// initialize store for the defer closure call
 	if err := db.Init(asdf1); err != nil {
-		t.Fatalf("[FAIL] %e", err)
+		t.Fatalf("[FAIL] %s", err.Error())
 	}
 
 }
 
 func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop
 	tpath := t.TempDir()
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tpath); err != nil {
+			panic(err)
+		}
+	})
 	tdb := OpenDB(tpath)
 	if tdb == nil {
 		t.Fatalf("failed to open testdb at %s, got nil", tpath)
@@ -386,9 +401,14 @@ func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop
 }
 func Test_PhonyInit(t *testing.T) {
 	newtmp := t.TempDir()
+	t.Cleanup(func() {
+		if err := os.RemoveAll(newtmp); err != nil {
+			panic(err)
+		}
+	})
 	err := os.MkdirAll(newtmp+"/"+t.Name(), 0755)
 	if err != nil {
-		t.Fatalf("[FAIL] failed to create test directory: %e", err)
+		t.Fatalf("[FAIL] failed to create test directory: %s", err.Error())
 	}
 	err = os.Symlink("/dev/null", filepath.Join(newtmp, t.Name(), "lock"))
 	if err != nil {

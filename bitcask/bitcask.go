@@ -149,8 +149,8 @@ func OpenDB(path string) *DB {
 
 // discover is a helper function to discover and initialize all existing bitcask stores at the path.
 // caller must hold write lock.
-func (db *DB) discover() ([]string, error) {
-	if db.initialized.Load() {
+func (db *DB) discover(force ...bool) ([]string, error) {
+	if db.initialized.Load() && (len(force) == 0 || !force[0]) {
 		stores := make([]string, 0, len(db.store))
 		for store := range db.store {
 			if store == "" {
@@ -158,7 +158,9 @@ func (db *DB) discover() ([]string, error) {
 			}
 			stores = append(stores, store)
 		}
-		return stores, nil
+		if len(stores) > 0 {
+			return stores, nil
+		}
 	}
 	stores := make([]string, 0, len(db.store))
 	errs := make([]error, 0, len(db.store))
@@ -170,6 +172,9 @@ func (db *DB) discover() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	_ = db._init()
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue

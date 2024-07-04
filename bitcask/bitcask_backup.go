@@ -97,7 +97,7 @@ func (db *DB) RestoreAll(archivePath string) error {
 		return fmt.Errorf("failed to re-init db after restore%s: %w", preBackupPath, err)
 	}
 
-	_, err := db.discover()
+	_, err := db.discover(true)
 	if err != nil {
 		return fmt.Errorf("failed during discover call after restore%s: %w", preBackupPath, err)
 	}
