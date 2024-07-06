@@ -130,15 +130,15 @@ func TestDB_Init(t *testing.T) { //nolint:funlen,gocognit,cyclop
 		}
 	})
 	t.Run("withNewStoreDoesntExist", func(t *testing.T) {
-		if nope := db.WithNew("asdfqwerty"); nope.Backend() == nil {
+		if nope := db.WithNew("asdfqwerty"); nope.Backend() == nil || nope.Backend() == nilBackend {
 			t.Fatalf("[FAIL] got nil result for nonexistent store when it should have made itself: %T, %v", nope, nope)
 		} else {
-			t.Logf("[SUCCESS] got nil Value for store that doesn't exist")
+			t.Logf("[SUCCESS] got new store with valid backend when calling WithNew for store that doesn't exist")
 		}
 	})
 	t.Run("withStoreDoesntExist", func(t *testing.T) {
 		nope := db.With(c.RandStr(10))
-		if nope != nil {
+		if nope != nil && nope.Backend() != nilBackend {
 			t.Fatalf("[FAIL] got non nil result for nonexistent store: %T, %v", nope.Backend(), nope.Backend())
 		} else {
 			t.Logf("[SUCCESS] got nil Value for store that doesn't exist")

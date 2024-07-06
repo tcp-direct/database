@@ -23,9 +23,10 @@ require (
 )
 
 retract (
-	v0.4.7 // riddled
-	v0.4.6 // with
-	v0.4.5 // pre v1
+	v0.5.0 // riddled
+	v0.4.7 // with
+	v0.4.6 // pre
+	v0.4.5 // v1
 	v0.4.4 // bugs
 	//
 	v0.4.3 // deadlock

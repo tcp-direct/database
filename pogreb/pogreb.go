@@ -53,8 +53,16 @@ type Store struct {
 	metrics *pogreb.Metrics
 }
 
+var nilBackend = &pogreb.DB{}
+
 // Backend returns the underlying pogreb instance.
 func (pstore *Store) Backend() any {
+	if pstore == nil {
+		return nilBackend
+	}
+	if pstore.DB == nil {
+		return nilBackend
+	}
 	return pstore.DB
 }
 
@@ -300,6 +308,10 @@ func (db *DB) With(storeName string) database.Filer {
 	}
 	db.mu.RLock()
 	d, ok := db.store[storeName]
+	if !ok {
+		db.mu.RUnlock()
+		return nil
+	}
 	if ok {
 		if d.closed == nil || d.DB == nil || d.closed.Load() {
 			db.mu.RUnlock()
@@ -317,6 +329,9 @@ func (db *DB) With(storeName string) database.Filer {
 		return d
 	}
 	db.mu.RUnlock()
+	if d != nil && d.DB == nil {
+		d = nil
+	}
 	return d
 }
 
@@ -398,7 +413,7 @@ func (db *DB) withAll(action withAllAction) error {
 	var errs = make([]error, len(db.store))
 	for name, store := range db.store {
 		var err error
-		if store == nil || store.Backend().(*pogreb.DB) == nil {
+		if store == nil || store.Backend() == nilBackend || store.Backend().(*pogreb.DB) == nil {
 			errs = append(errs, namedErr(name, ErrBogusStore))
 			continue
 		}
