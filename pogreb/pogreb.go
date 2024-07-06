@@ -1,7 +1,6 @@
 package pogreb
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,42 +16,6 @@ import (
 	"git.tcp.direct/tcp.direct/database/metadata"
 	"git.tcp.direct/tcp.direct/database/models"
 )
-
-type Option func(*WrappedOptions)
-
-var OptionAllowRecovery = func(opts *WrappedOptions) {
-	opts.AllowRecovery = true
-}
-
-func AllowRecovery() Option {
-	return OptionAllowRecovery
-}
-
-func SetPogrebOptions(options pogreb.Options) Option {
-	return func(opts *WrappedOptions) {
-		opts.Options = &options
-	}
-}
-
-type WrappedOptions struct {
-	*pogreb.Options
-	// AllowRecovery allows the database to be recovered if a lockfile is detected upon running Init.
-	AllowRecovery bool
-}
-
-func (w *WrappedOptions) MarshalJSON() ([]byte, error) {
-	optData, err := json.Marshal(w.Options)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(struct {
-		Options       json.RawMessage `json:"options"`
-		AllowRecovery bool            `json:"allow_recovery"`
-	}{
-		Options:       optData,
-		AllowRecovery: w.AllowRecovery,
-	})
-}
 
 func (pstore *Store) Len() int {
 	return int(pstore.DB.Count())
@@ -292,46 +255,6 @@ func (db *DB) Path() string {
 	return db.path
 }
 
-var defaultPogrebOptions = &WrappedOptions{
-	Options:       nil,
-	AllowRecovery: false,
-}
-
-// SetDefaultPogrebOptions options will set the options used for all subsequent pogreb stores that are initialized.
-func SetDefaultPogrebOptions(pogrebopts ...any) {
-	inner, pgoptOk := pogrebopts[0].(pogreb.Options)
-	wrapped, pgoptWrappedOk := pogrebopts[0].(*WrappedOptions)
-	switch {
-	case !pgoptOk && !pgoptWrappedOk:
-		panic("invalid pogreb options")
-	case pgoptOk:
-		defaultPogrebOptions = &WrappedOptions{
-			Options:       &inner,
-			AllowRecovery: false,
-		}
-	default: // case pgoptWrappedOk:
-		defaultPogrebOptions = wrapped
-	}
-}
-
-func normalizeOptions(opts ...any) *WrappedOptions {
-	var pogrebopts *WrappedOptions
-	pgInner, pgOK := opts[0].(pogreb.Options)
-	pgWrapped, pgWrappedOK := opts[0].(WrappedOptions)
-	switch {
-	case !pgOK && !pgWrappedOK:
-		return nil
-	case pgOK:
-		pogrebopts = &WrappedOptions{
-			Options:       &pgInner,
-			AllowRecovery: false,
-		}
-	case pgWrappedOK:
-		pogrebopts = &pgWrapped
-	}
-	return pogrebopts
-}
-
 func (db *DB) initStore(storeName string, pogrebOpts *WrappedOptions) error {
 	if _, ok := db.store[storeName]; ok {
 		return ErrStoreExists
@@ -394,7 +317,7 @@ func (db *DB) With(storeName string) database.Filer {
 		return d
 	}
 	db.mu.RUnlock()
-	return nil
+	return d
 }
 
 // WithNew calls the given underlying pogreb instance, if it doesn't exist, it creates it.
