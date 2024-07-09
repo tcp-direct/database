@@ -23,7 +23,7 @@ func (pstore *Store) Len() int {
 
 func (pstore *Store) Keys() [][]byte {
 	iter := pstore.DB.Items()
-	ks := make([][]byte, pstore.DB.Count())
+	ks := make([][]byte, 0, pstore.DB.Count())
 	for k, _, _ := iter.Next(); k != nil; k, _, _ = iter.Next() {
 		ks = append(ks, k)
 	}
