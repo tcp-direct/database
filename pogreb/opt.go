@@ -2,6 +2,7 @@ package pogreb
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/akrylysov/pogreb"
 )
@@ -47,48 +48,52 @@ var defaultPogrebOptions = &WrappedOptions{
 	AllowRecovery: false,
 }
 
-// SetDefaultPogrebOptions options will set the options used for all subsequent pogreb stores that are initialized.
-func SetDefaultPogrebOptions(pogrebopts ...any) {
+var ErrInvalidOptions = errors.New("invalid pogreb options")
+
+func castOptions(pogrebopts ...any) (*WrappedOptions, error) {
 	inner, pgoptOk := pogrebopts[0].(pogreb.Options)
 	innerPtr, pgoptPtrOk := pogrebopts[0].(*pogreb.Options)
 	wrapped, pgoptWrappedOk := pogrebopts[0].(*WrappedOptions)
 	wrappedLiteral, pgoptWrappedLiteralOk := pogrebopts[0].(WrappedOptions)
+	var ret *WrappedOptions
 	//goland:noinspection GoDfaConstantCondition
 	switch {
 	case !pgoptOk && !pgoptWrappedOk && !pgoptPtrOk && !pgoptWrappedLiteralOk:
-		panic("invalid pogreb options")
+		return nil, ErrInvalidOptions
 	case pgoptOk:
-		defaultPogrebOptions = &WrappedOptions{
+		ret = &WrappedOptions{
 			Options:       &inner,
 			AllowRecovery: false,
 		}
 	case pgoptPtrOk:
-		defaultPogrebOptions = &WrappedOptions{
+		ret = &WrappedOptions{
 			Options:       innerPtr,
 			AllowRecovery: false,
 		}
 	case pgoptWrappedLiteralOk:
-		defaultPogrebOptions = &wrappedLiteral
+		ret = &wrappedLiteral
 	case pgoptWrappedOk:
-		defaultPogrebOptions = wrapped
+		ret = wrapped
 	}
+
+	return ret, nil
+}
+
+// SetDefaultPogrebOptions options will set the options used for all subsequent pogreb stores that are initialized.
+func SetDefaultPogrebOptions(pogrebopts ...any) (err error) {
+	defaultPogrebOptions, err = castOptions(pogrebopts...)
+	return
 }
 
 func normalizeOptions(opts ...any) *WrappedOptions {
-	var pogrebopts *WrappedOptions
-	pgInner, pgOK := opts[0].(pogreb.Options)
-	pgWrapped, pgWrappedOK := opts[0].(WrappedOptions)
-	//goland:noinspection GoDfaConstantCondition
-	switch {
-	case !pgOK && !pgWrappedOK:
-		return nil
-	case pgOK:
-		pogrebopts = &WrappedOptions{
-			Options:       &pgInner,
-			AllowRecovery: false,
-		}
-	case pgWrappedOK:
-		pogrebopts = &pgWrapped
+	if len(opts) == 0 {
+		return defaultPogrebOptions
 	}
-	return pogrebopts
+
+	opt, err := castOptions(opts[0])
+	if err != nil {
+		println("bad options: " + err.Error())
+		return nil
+	}
+	return opt
 }
