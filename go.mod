@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.22.4
 
 require (
-	git.tcp.direct/Mirrors/bitcask-mirror v0.0.0-20220228092422-1ec4297c7e34
+	git.mills.io/prologic/bitcask v1.0.2
 	git.tcp.direct/kayos/common v0.9.9
 	github.com/akrylysov/pogreb v0.10.2
 	github.com/davecgh/go-spew v1.1.1
@@ -16,7 +16,7 @@ require (
 	github.com/gofrs/flock v0.8.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/plar/go-adaptive-radix-tree v1.0.4 // indirect
-	github.com/rs/zerolog v1.26.1 // indirect
+	github.com/sirupsen/logrus v1.8.1 // indirect
 	golang.org/x/exp v0.0.0-20200228211341-fcea875c7e85 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	nullprogram.com/x/rng v1.1.0 // indirect
