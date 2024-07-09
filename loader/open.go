@@ -41,7 +41,17 @@ func OpenKeeper(path string, opts ...any) (database.Keeper, error) {
 	if keeperCreator = registry.GetKeeper(meta.KeeperType); keeperCreator == nil {
 		return nil, fmt.Errorf("keeper type %s not found in registry", meta.KeeperType)
 	}
-	keeper, err := keeperCreator(path, meta.DefStoreOpts)
+
+	var (
+		keeper database.Keeper
+	)
+
+	if len(opts) > 0 {
+		keeper, err = keeperCreator(path, opts...)
+	} else {
+		keeper, err = keeperCreator(path)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("error substantiating keeper: %w", err)
 	}

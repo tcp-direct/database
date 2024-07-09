@@ -3,7 +3,9 @@ package database
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -23,6 +25,7 @@ type MockFiler struct {
 	name   string
 	values map[string][]byte
 	closed bool
+	Opts   []MockOpt
 	mu     sync.RWMutex
 }
 
@@ -37,8 +40,8 @@ func (m *MockKeeper) WriteMeta(path string) error {
 	mockMu.Lock()
 	mockKeepers[m.name] = m.AllStores()
 	mockMu.Unlock()
-	registry.RegisterKeeper(m.name, func(path string, _ ...any) (database.Keeper, error) {
-		return NewMockKeeper(m.name), nil
+	registry.RegisterKeeper(m.name, func(path string, opts ...any) (database.Keeper, error) {
+		return NewMockKeeper(m.name, opts...), nil
 	})
 
 	return json.NewEncoder(f).Encode(m.Meta())
@@ -109,27 +112,68 @@ func (m *MockFiler) Len() int {
 	return l
 }
 
+type MockOpt string
+
 type MockKeeper struct {
-	name   string
-	path   string
-	stores map[string]database.Filer
-	mu     sync.RWMutex
+	name    string
+	path    string
+	defOpts []MockOpt
+	stores  map[string]database.Filer
+	mu      sync.RWMutex
 }
 
-func NewMockKeeper(name string) *MockKeeper {
-	return &MockKeeper{
+func NewMockKeeper(name string, defopts ...any) *MockKeeper {
+	opts := make([]MockOpt, 0, len(defopts))
+	for _, opt := range defopts {
+		if opt == nil {
+			println("nil opt")
+			continue
+		}
+		if strOpt, strOK := opt.(string); strOK {
+			opt = MockOpt(strOpt)
+		}
+		if _, ok := opt.(MockOpt); !ok {
+			panic(fmt.Errorf("%w: (%T): %v", ErrBadOptions, opt, opt))
+		}
+		opts = append(opts, opt.(MockOpt))
+	}
+
+	mk := &MockKeeper{
 		name:   name,
 		stores: make(map[string]database.Filer),
 	}
+
+	if len(opts) > 0 {
+		mk.defOpts = opts
+	}
+
+	return mk
 }
 
 func (m *MockKeeper) Path() string {
 	return m.path
 }
 
+var ErrBadOptions = errors.New("bad mock filer options")
+
 func (m *MockKeeper) Init(name string, options ...any) error {
 	m.mu.Lock()
 	m.stores[name] = &MockFiler{name: name, values: make(map[string][]byte)}
+	if len(options) > 0 {
+		for _, opt := range options {
+			strOpt, strOK := opt.(string)
+			mockOpt, mockOK := opt.(MockOpt)
+			if !strOK && !mockOK {
+				return ErrBadOptions
+			}
+			if strOK {
+				mockOpt = MockOpt(strOpt)
+			}
+			m.stores[name].(*MockFiler).Opts = append(m.stores[name].(*MockFiler).Opts, mockOpt)
+		}
+	} else if m.defOpts != nil {
+		m.stores[name].(*MockFiler).Opts = append(m.stores[name].(*MockFiler).Opts, m.defOpts...)
+	}
 	m.mu.Unlock()
 	return nil
 }
@@ -171,10 +215,18 @@ func (m *MockKeeper) Destroy(name string) error {
 }
 
 func (m *MockKeeper) Discover() ([]string, error) {
+	getStores := func() []string {
+		names := make([]string, 0, len(m.stores))
+		for name := range m.stores {
+			names = append(names, name)
+		}
+		return names
+	}
+
 	m.mu.RLock()
 	if m.stores != nil && len(m.stores) > 0 {
 		m.mu.RUnlock()
-		return nil, nil
+		return getStores(), nil
 	}
 	mockMu.RLock()
 	stores, ok := mockKeepers[m.name]
@@ -182,16 +234,22 @@ func (m *MockKeeper) Discover() ([]string, error) {
 	if ok {
 		m.mu.RUnlock()
 		m.mu.Lock()
+		for _, s := range stores {
+			if m.defOpts != nil {
+				for _, v := range m.defOpts {
+					if !slices.Contains(s.(*MockFiler).Opts, v) {
+						s.(*MockFiler).Opts = append(s.(*MockFiler).Opts, v)
+					}
+				}
+			}
+		}
 		m.stores = stores
 		m.mu.Unlock()
 		m.mu.RLock()
 	}
-	names := make([]string, 0, len(m.stores))
-	for name := range m.stores {
-		names = append(names, name)
-	}
+
 	m.mu.RUnlock()
-	return names, nil
+	return getStores(), nil
 }
 
 func (m *MockKeeper) AllStores() map[string]database.Filer {

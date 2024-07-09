@@ -66,3 +66,35 @@ func TestOpenKeeper(t *testing.T) {
 		t.Errorf("expected yeet2, got %s", val)
 	}
 }
+
+func TestOpenKeeperWithOpts(t *testing.T) {
+	nmK := database.NewMockKeeper("yeeties")
+	_ = nmK.WithNew("yeets").Put([]byte("yeets"), []byte("yeets"))
+	_ = nmK.WithNew("yeets1").Put([]byte("yeet1"), []byte("yeet1"))
+	tmp := filepath.Join(t.TempDir(), "meta.json")
+	if err := nmK.WriteMeta(tmp); err != nil {
+		t.Fatalf("error writing meta: %v", err)
+	}
+	keeper, err := OpenKeeper(tmp, "yeeterson mcgee", "yeet it")
+	if err != nil {
+		t.Fatalf("error opening keeper: %v", err)
+	}
+	for _, store := range keeper.AllStores() {
+		found := 0
+		for _, opt := range store.(*database.MockFiler).Opts {
+			if opt == "yeet it" {
+				found++
+			}
+			if opt == "yeeterson mcgee" {
+				found++
+			}
+			t.Logf("found option: %v", opt)
+		}
+		if found > 2 {
+			t.Fatal("too many options")
+		}
+		if found != 2 {
+			t.Fatal("not enough options")
+		}
+	}
+}
