@@ -3,6 +3,7 @@ package pogreb
 import (
 	"encoding/json"
 	"errors"
+	"sync"
 
 	"github.com/akrylysov/pogreb"
 )
@@ -24,9 +25,9 @@ func SetPogrebOptions(options pogreb.Options) Option {
 }
 
 type WrappedOptions struct {
-	*pogreb.Options
+	*pogreb.Options `json:"options"`
 	// AllowRecovery allows the database to be recovered if a lockfile is detected upon running Init.
-	AllowRecovery bool
+	AllowRecovery bool `json:"allow_recovery,omitempty"`
 }
 
 func (w *WrappedOptions) MarshalJSON() ([]byte, error) {
@@ -47,6 +48,8 @@ var defaultPogrebOptions = &WrappedOptions{
 	Options:       nil,
 	AllowRecovery: false,
 }
+
+var defOptMu = sync.RWMutex{}
 
 var ErrInvalidOptions = errors.New("invalid pogreb options")
 
@@ -81,13 +84,18 @@ func castOptions(pogrebopts ...any) (*WrappedOptions, error) {
 
 // SetDefaultPogrebOptions options will set the options used for all subsequent pogreb stores that are initialized.
 func SetDefaultPogrebOptions(pogrebopts ...any) (err error) {
+	defOptMu.Lock()
 	defaultPogrebOptions, err = castOptions(pogrebopts...)
+	defOptMu.Unlock()
 	return
 }
 
 func normalizeOptions(opts ...any) *WrappedOptions {
 	if len(opts) == 0 {
-		return defaultPogrebOptions
+		defOptMu.RLock()
+		defOpt := defaultPogrebOptions
+		defOptMu.RUnlock()
+		return defOpt
 	}
 
 	opt, err := castOptions(opts[0])

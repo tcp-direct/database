@@ -220,7 +220,16 @@ func (db *DB) _init() error {
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
-		db.meta, err = metadata.NewMetaFile(db.Type(), filepath.Join(db.path, "meta.json"))
+		dest := filepath.Join(db.path, "meta.json")
+		f, ferr := os.Create(dest)
+		if ferr != nil {
+			return fmt.Errorf("error creating meta file: %w", ferr)
+		}
+		defOptMu.RLock()
+		db.meta = metadata.NewMeta(metadata.KeeperType(db.Type())).
+			WithDefaultStoreOpts(defaultPogrebOptions).WithWriter(f)
+		defOptMu.RUnlock()
+		err = db.meta.Sync()
 		if err != nil {
 			return fmt.Errorf("error creating meta file: %w", err)
 		}
@@ -287,7 +296,9 @@ func (db *DB) Init(storeName string, opts ...any) error {
 	if err := db.init(); err != nil {
 		return err
 	}
+	defOptMu.RLock()
 	pogrebopts := defaultPogrebOptions
+	defOptMu.RUnlock()
 	if len(opts) > 0 {
 		pogrebopts = normalizeOptions(opts...)
 		if pogrebopts == nil {
@@ -312,26 +323,22 @@ func (db *DB) With(storeName string) database.Filer {
 		db.mu.RUnlock()
 		return nil
 	}
-	if ok {
-		if d.closed == nil || d.DB == nil || d.closed.Load() {
-			db.mu.RUnlock()
-			db.mu.Lock()
-			delete(db.store, storeName)
-			if err := db.initStore(storeName, defaultPogrebOptions); err != nil {
-				_, _ = os.Stderr.WriteString("error creating pogreb store: " + err.Error())
-				db.mu.Unlock()
-				return nil
-			}
-			db.mu.Unlock()
-			return db.store[storeName]
-		}
+	if d.closed == nil || d.DB == nil || d.closed.Load() {
 		db.mu.RUnlock()
-		return d
+		db.mu.Lock()
+		delete(db.store, storeName)
+		defOptMu.RLock()
+		if err := db.initStore(storeName, defaultPogrebOptions); err != nil {
+			_, _ = os.Stderr.WriteString("error creating pogreb store: " + err.Error())
+			defOptMu.RUnlock()
+			db.mu.Unlock()
+			return nil
+		}
+		defOptMu.RUnlock()
+		db.mu.Unlock()
+		return db.store[storeName]
 	}
 	db.mu.RUnlock()
-	if d != nil && d.DB == nil {
-		d = nil
-	}
 	return d
 }
 
@@ -551,14 +558,19 @@ func (db *DB) discover(force ...bool) ([]string, error) {
 		if _, ok := db.store[name]; ok {
 			continue
 		}
-		if err = db.initStore(name, defaultPogrebOptions); err != nil {
+		defOptMu.RLock()
+		defOpt := defaultPogrebOptions
+		defOptMu.RUnlock()
+		if err = db.initStore(name, defOpt); err != nil {
 			errs = append(errs, err)
 			continue
 		}
 		stores = append(stores, name)
 		aclosed := &atomic.Bool{}
 		aclosed.Store(false)
-		db.store[name] = &Store{DB: db.store[name].DB, closed: aclosed, opts: defaultPogrebOptions}
+		defOptMu.RLock()
+		db.store[name] = &Store{DB: db.store[name].DB, closed: aclosed, opts: defOpt}
+		defOptMu.RUnlock()
 	}
 
 	for _, e := range errs {

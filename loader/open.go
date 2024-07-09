@@ -10,7 +10,7 @@ import (
 	"git.tcp.direct/tcp.direct/database/registry"
 )
 
-func OpenKeeper(path string) (database.Keeper, error) {
+func OpenKeeper(path string, opts ...any) (database.Keeper, error) {
 	stat, statErr := os.Stat(path)
 	if statErr != nil {
 		return nil, statErr
@@ -41,7 +41,7 @@ func OpenKeeper(path string) (database.Keeper, error) {
 	if keeperCreator = registry.GetKeeper(meta.KeeperType); keeperCreator == nil {
 		return nil, fmt.Errorf("keeper type %s not found in registry", meta.KeeperType)
 	}
-	keeper, err := keeperCreator(path)
+	keeper, err := keeperCreator(path, meta.DefStoreOpts)
 	if err != nil {
 		return nil, fmt.Errorf("error substantiating keeper: %w", err)
 	}

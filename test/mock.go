@@ -37,7 +37,7 @@ func (m *MockKeeper) WriteMeta(path string) error {
 	mockMu.Lock()
 	mockKeepers[m.name] = m.AllStores()
 	mockMu.Unlock()
-	registry.RegisterKeeper(m.name, func(path string) (database.Keeper, error) {
+	registry.RegisterKeeper(m.name, func(path string, _ ...any) (database.Keeper, error) {
 		return NewMockKeeper(m.name), nil
 	})
 

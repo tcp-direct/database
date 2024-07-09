@@ -2,7 +2,7 @@ package database
 
 import "errors"
 
-type KeeperCreator func(path string) (Keeper, error)
+type KeeperCreator func(path string, opt ...any) (Keeper, error)
 
 var ErrNotStore = errors.New("provided Filer does not implement Store")
 

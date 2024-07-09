@@ -11,7 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"git.tcp.direct/Mirrors/bitcask-mirror"
+	"git.mills.io/prologic/bitcask"
 
 	"git.tcp.direct/tcp.direct/database"
 	"git.tcp.direct/tcp.direct/database/kv"
@@ -227,6 +227,9 @@ func (db *DB) discover(force ...bool) ([]string, error) {
 		aclosed.Store(false)
 		db.store[name] = &Store{Bitcask: c, closed: aclosed}
 		if db.meta == nil {
+			// TODO: verify this:
+			// bitcask should store it's config in each store's individual metadata files (whereas pogreb doesn't seem to)
+			// this means we don't need to put the configs into our metadata, which is fortunate because the config is unexported
 			db.meta = metadata.NewMeta("bitcask")
 		}
 		if db.meta.KnownStores == nil {
