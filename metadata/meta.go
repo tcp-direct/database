@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/models"
 )
 
 // Metadata is a struct that holds the metadata for a [Keeper]'s DB.

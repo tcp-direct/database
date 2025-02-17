@@ -8,8 +8,8 @@ import (
 	"slices"
 	"time"
 
-	"git.tcp.direct/tcp.direct/database/backup"
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/backup"
+	"github.com/tcp-direct/database/models"
 )
 
 func (db *DB) BackupAll(archivePath string) (models.Backup, error) {

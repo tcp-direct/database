@@ -3,7 +3,7 @@ package metadata
 import (
 	"errors"
 
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/models"
 )
 
 var ErrNotCanonicalMetadata = errors.New("metadata is of a different type, cannot cast")

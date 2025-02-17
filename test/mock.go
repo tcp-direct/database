@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"git.tcp.direct/tcp.direct/database"
-	"git.tcp.direct/tcp.direct/database/metadata"
-	"git.tcp.direct/tcp.direct/database/registry"
+	"github.com/tcp-direct/database"
+	"github.com/tcp-direct/database/metadata"
+	"github.com/tcp-direct/database/registry"
 
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/models"
 )
 
 var (

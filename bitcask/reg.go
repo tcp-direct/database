@@ -5,8 +5,8 @@ import (
 
 	"git.mills.io/prologic/bitcask"
 
-	"git.tcp.direct/tcp.direct/database"
-	"git.tcp.direct/tcp.direct/database/registry"
+	"github.com/tcp-direct/database"
+	"github.com/tcp-direct/database/registry"
 )
 
 var ErrBadOpt = errors.New("invalid bitcask options")

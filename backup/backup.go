@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/models"
 )
 
 type Format string
@@ -170,7 +170,7 @@ func NewTarGzBackup(inPath string, outPath string, stores []string, extraData ..
 	}
 
 	gz := gzip.NewWriter(finalFile)
-	gz.Comment = "git.tcp.direct/tcp.direct/database backup archive"
+	gz.Comment = "github.com/tcp-direct/database backup archive"
 	if len(extraData) > 0 {
 		for _, data := range extraData {
 			gz.Comment += "\n" + string(data)

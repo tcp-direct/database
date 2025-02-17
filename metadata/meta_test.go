@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/models"
 )
 
 func TestNewMetaFile_Success(t *testing.T) {

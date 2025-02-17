@@ -1,8 +1,8 @@
 package pogreb
 
 import (
-	"git.tcp.direct/tcp.direct/database"
-	"git.tcp.direct/tcp.direct/database/registry"
+	"github.com/tcp-direct/database"
+	"github.com/tcp-direct/database/registry"
 )
 
 func init() {

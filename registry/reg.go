@@ -3,7 +3,7 @@ package registry
 import (
 	"sync"
 
-	"git.tcp.direct/tcp.direct/database"
+	"github.com/tcp-direct/database"
 )
 
 var (

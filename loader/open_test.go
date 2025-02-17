@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"git.tcp.direct/tcp.direct/database/test"
+	"github.com/tcp-direct/database/test"
 )
 
 func TestOpenKeeper(t *testing.T) {

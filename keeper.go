@@ -1,7 +1,7 @@
 package database
 
 import (
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/models"
 )
 
 // Keeper will be in charge of the more meta operations involving Filers.

@@ -9,13 +9,13 @@ import (
 
 	"git.tcp.direct/kayos/common/entropy"
 
-	"git.tcp.direct/tcp.direct/database"
-	"git.tcp.direct/tcp.direct/database/backup"
-	_ "git.tcp.direct/tcp.direct/database/bitcask" // register bitcask
-	"git.tcp.direct/tcp.direct/database/kv"
-	"git.tcp.direct/tcp.direct/database/models"
-	_ "git.tcp.direct/tcp.direct/database/pogreb" // register pogreb
-	"git.tcp.direct/tcp.direct/database/registry"
+	"github.com/tcp-direct/database"
+	"github.com/tcp-direct/database/backup"
+	_ "github.com/tcp-direct/database/bitcask" // register bitcask
+	"github.com/tcp-direct/database/kv"
+	"github.com/tcp-direct/database/models"
+	_ "github.com/tcp-direct/database/pogreb" // register pogreb
+	"github.com/tcp-direct/database/registry"
 )
 
 func TestAllKeepers(t *testing.T) {

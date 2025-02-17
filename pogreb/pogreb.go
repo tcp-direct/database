@@ -11,10 +11,10 @@ import (
 
 	"github.com/akrylysov/pogreb"
 
-	"git.tcp.direct/tcp.direct/database"
-	"git.tcp.direct/tcp.direct/database/kv"
-	"git.tcp.direct/tcp.direct/database/metadata"
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database"
+	"github.com/tcp-direct/database/kv"
+	"github.com/tcp-direct/database/metadata"
+	"github.com/tcp-direct/database/models"
 )
 
 func (pstore *Store) Len() int {

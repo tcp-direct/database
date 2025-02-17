@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"git.tcp.direct/tcp.direct/database/test"
+	"github.com/tcp-direct/database/test"
 )
 
 func TestMigrator_WithClobber(t *testing.T) {

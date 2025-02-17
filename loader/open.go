@@ -1,14 +1,17 @@
 package loader
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"git.tcp.direct/tcp.direct/database"
-	"git.tcp.direct/tcp.direct/database/metadata"
-	"git.tcp.direct/tcp.direct/database/registry"
+	"github.com/tcp-direct/database"
+	"github.com/tcp-direct/database/metadata"
+	"github.com/tcp-direct/database/registry"
 )
+
+var ErrEmptyMeta = errors.New("meta.json is empty")
 
 func OpenKeeper(path string, opts ...any) (database.Keeper, error) {
 	stat, statErr := os.Stat(path)
@@ -30,7 +33,7 @@ func OpenKeeper(path string, opts ...any) (database.Keeper, error) {
 		return nil, fmt.Errorf("error reading meta.json: %w", readErr)
 	}
 	if len(metaDat) == 0 {
-		return nil, fmt.Errorf("meta.json is empty")
+		return nil, ErrEmptyMeta
 	}
 
 	meta, err := metadata.LoadMeta(metaDat)

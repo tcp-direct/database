@@ -12,7 +12,7 @@ import (
 	c "git.tcp.direct/kayos/common/entropy"
 	"github.com/davecgh/go-spew/spew"
 
-	"git.tcp.direct/tcp.direct/database"
+	"github.com/tcp-direct/database"
 )
 
 func newTestDB(t *testing.T) (string, database.Keeper) {

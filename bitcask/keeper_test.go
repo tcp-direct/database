@@ -3,7 +3,7 @@ package bitcask
 import (
 	"testing"
 
-	"git.tcp.direct/tcp.direct/database"
+	"github.com/tcp-direct/database"
 )
 
 func Test_Interfaces(t *testing.T) {

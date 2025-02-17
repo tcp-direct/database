@@ -1,6 +1,6 @@
 package database
 
-import "git.tcp.direct/tcp.direct/database/kv"
+import "github.com/tcp-direct/database/kv"
 
 // Searcher must be able to search through our datastore(s) with strings.
 type Searcher interface {

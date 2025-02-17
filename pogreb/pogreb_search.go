@@ -7,7 +7,7 @@ import (
 
 	"github.com/akrylysov/pogreb"
 
-	"git.tcp.direct/tcp.direct/database/kv"
+	"github.com/tcp-direct/database/kv"
 )
 
 // Search will search for a given string within all values inside of a Store.

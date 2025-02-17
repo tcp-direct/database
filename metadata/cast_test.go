@@ -3,7 +3,7 @@ package metadata
 import (
 	"testing"
 
-	"git.tcp.direct/tcp.direct/database/models"
+	"github.com/tcp-direct/database/models"
 )
 
 func TestCast(t *testing.T) {
