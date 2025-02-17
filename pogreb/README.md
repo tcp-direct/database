@@ -93,7 +93,7 @@ Close is a simple shim for pogreb's Close function.
 ```go
 func (db *DB) CloseAll() error
 ```
-CloseAll closes all bitcask datastores.
+CloseAll closes all pogreb datastores.
 
 #### func (*DB) Destroy
 
@@ -107,7 +107,7 @@ Destroy will remove a pogreb store and all data associated with it.
 ```go
 func (db *DB) Discover() ([]string, error)
 ```
-Discover will discover and initialize all existing bitcask stores at the path
+Discover will discover and initialize all existing pogreb stores at the path
 opened by [OpenDB].
 
 #### func (*DB) Init
@@ -156,7 +156,7 @@ SyncAll syncs all pogreb datastores.
 ```go
 func (db *DB) SyncAndCloseAll() error
 ```
-SyncAndCloseAll implements the method from Keeper to sync and close all bitcask
+SyncAndCloseAll implements the method from Keeper to sync and close all pogreb
 stores.
 
 #### func (*DB) Type
@@ -214,7 +214,7 @@ type Store struct {
 }
 ```
 
-Store is an implmentation of a Filer and a Searcher using Bitcask.
+Store is an implmentation of a Filer and a Searcher using pogreb.
 
 #### func (*Store) Backend
 

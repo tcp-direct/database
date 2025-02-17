@@ -198,7 +198,7 @@ func Test_ValueExists(t *testing.T) {
 		}
 	})
 
-	t.Run("ValueExistNilBitcask", func(t *testing.T) {
+	t.Run("ValueExistNilPogreb", func(t *testing.T) {
 		db.store["asdb"] = &Store{DB: nil}
 		garbage := "yeet"
 		if _, exists := db.With(storename).(database.Store).ValueExists([]byte(garbage)); exists {

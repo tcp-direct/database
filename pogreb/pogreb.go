@@ -45,7 +45,7 @@ type Metrics struct {
 	HashCollisions int64 `json:"hash_collisions"`
 }
 
-// Store is an implmentation of a Filer and a Searcher using Bitcask.
+// Store is an implmentation of a Filer and a Searcher using pogreb.
 type Store struct {
 	*pogreb.DB
 	opts    *WrappedOptions
@@ -200,7 +200,7 @@ func (db *DB) _init() error {
 	if _, err := os.Stat(db.path); os.IsNotExist(err) {
 		err = os.MkdirAll(db.path, 0700)
 		if err != nil {
-			return fmt.Errorf("error creating bitcask directory: %w", err)
+			return fmt.Errorf("error creating pogreb directory: %w", err)
 		}
 	}
 	stat, err := os.Stat(filepath.Join(db.path, "meta.json"))
@@ -213,7 +213,7 @@ func (db *DB) _init() error {
 			return fmt.Errorf("error opening meta file: %w", err)
 		}
 		if db.meta.Type() != db.Type() {
-			return fmt.Errorf("meta.json is not a bitcask meta file")
+			return fmt.Errorf("meta.json is not a pogreb meta file")
 		}
 		db.initialized.Store(true)
 		return nil
@@ -462,7 +462,7 @@ func (db *DB) syncAndCloseAll() error {
 	return compoundErrors(errs)
 }
 
-// SyncAndCloseAll implements the method from Keeper to sync and close all bitcask stores.
+// SyncAndCloseAll implements the method from Keeper to sync and close all pogreb stores.
 func (db *DB) SyncAndCloseAll() error {
 	db.mu.Lock()
 	err := db.syncAndCloseAll()
@@ -474,7 +474,7 @@ func (db *DB) closeAll() error {
 	return db.withAll(dclose)
 }
 
-// CloseAll closes all bitcask datastores.
+// CloseAll closes all pogreb datastores.
 func (db *DB) CloseAll() error {
 	db.mu.Lock()
 	err := db.closeAll()
@@ -584,7 +584,7 @@ func (db *DB) discover(force ...bool) ([]string, error) {
 	return stores, err
 }
 
-// Discover will discover and initialize all existing bitcask stores at the path opened by [OpenDB].
+// Discover will discover and initialize all existing pogreb stores at the path opened by [OpenDB].
 func (db *DB) Discover() ([]string, error) {
 	if err := db.init(); err != nil {
 		println("error initializing")

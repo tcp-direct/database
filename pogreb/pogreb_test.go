@@ -383,7 +383,7 @@ func Test_WithOptions(t *testing.T) { //nolint:funlen,gocognit,cyclop
 	if tdb == nil {
 		t.Fatalf("failed to open testdb at %s, got nil", tpath)
 	}
-	// FIXME: inconsistent with other implementations (bitcask)
+	// FIXME: inconsistent with other implementations (pogreb)
 	defer func() {
 		t.Helper()
 		err := tdb.CloseAll()
