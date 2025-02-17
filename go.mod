@@ -23,6 +23,7 @@ require (
 )
 
 retract (
+	v0.5.5 // missed some spots
 	v0.5.0 // riddled
 	v0.4.7 // with
 	v0.4.6 // pre
