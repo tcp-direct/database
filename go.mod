@@ -1,4 +1,4 @@
-module git.tcp.direct/tcp.direct/database
+module github.com/tcp-direct/database
 
 go 1.21
 
