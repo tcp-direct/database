@@ -3,7 +3,7 @@
 [![Coverage](https://codecov.io/gh/tcp-direct/database/branch/main/graph/badge.svg)](https://codecov.io/gh/tcp-direct/database/tree/main)
 [![Build Status](https://github.com/tcp-direct/database/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/tcp-direct/database/actions/workflows/go.yml)
 
-`import "git.tcp.direct/tcp.direct/database"`
+`import "github.com/tcp-direct/database"`
 
 > [!WARNING]  
 > This package is pre-v1 and the API is NOT stable!
@@ -287,4 +287,15 @@ type Store interface {
 
 Store is an implementation of a Filer and a Searcher.
 
----
+#### func  ToStore
+
+```go
+func ToStore(filer Filer) (Store, error)
+```
+
+#### func  IsStore
+
+```go
+func IsStore(filer Filer) bool
+```
+
